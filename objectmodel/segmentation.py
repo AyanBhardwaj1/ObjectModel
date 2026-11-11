@@ -26,6 +26,9 @@ class SegmentationConfig:
     seed: int = 0
 
 
+RELAX_FACTORS = (1.0, 1.5, 2.0, 3.0)
+
+
 @dataclass
 class Segmentation:
     labels: np.ndarray  # (N,) part id, -1 = outlier
@@ -47,6 +50,12 @@ def estimate_noise(ts: TrackSet) -> float:
         return 0.0
     v = ts.visible[2:] & ts.visible[1:-1] & ts.visible[:-2]
     dd = ts.points[2:] - 2 * ts.points[1:-1] + ts.points[:-2]
+    # Static tracks from a real tracker can be exactly constant; measure noise on
+    # tracks that move when there are enough of them.
+    disp = np.where(ts.visible, np.linalg.norm(ts.points - ts.points[0], axis=2), 0).max(axis=0)
+    moving = disp > 1e-3
+    if moving.sum() >= 10:
+        v = v & moving[None, :]
     vals = np.abs(dd[v]).ravel()
     if vals.size == 0:
         return 0.0
@@ -94,6 +103,7 @@ def segment(ts: TrackSet, cfg: SegmentationConfig = SegmentationConfig()) -> Seg
     ref = ts.points[0]
     unassigned = np.ones(N, bool)
     parts: list[np.ndarray] = []
+    tols: list[float] = []
 
     while unassigned.sum() >= cfg.min_part_points and len(parts) < cfg.max_parts:
         cand = np.flatnonzero(unassigned & full)
@@ -108,13 +118,18 @@ def segment(ts: TrackSet, cfg: SegmentationConfig = SegmentationConfig()) -> Seg
         R, t = batch_kabsch(P, Q)
         R = R.reshape(len(seeds), ts.n_frames, 3, 3)
         t = t.reshape(len(seeds), ts.n_frames, 3)
-        best_count, best_inl = -1, None
-        for h in range(len(seeds)):
-            score = _robust_point_score(_point_residuals(ts, R[h], t[h]), ts.visible)
-            inl = (score < cfg.inlier_tol) & unassigned
-            c = int(inl.sum())
-            if c > best_count:
-                best_count, best_inl = c, inl
+        best_count, best_inl, tol = -1, None, cfg.inlier_tol
+        scores = [_robust_point_score(_point_residuals(ts, R[h], t[h]), ts.visible) for h in range(len(seeds))]
+        # Progressive relaxation: strict tolerance first; looser only for what remains
+        # (real trackers drift more on fast-moving parts than on the static base).
+        for tol in (cfg.inlier_tol * f for f in RELAX_FACTORS):
+            for score in scores:
+                inl = (score < tol) & unassigned
+                c = int(inl.sum())
+                if c > best_count:
+                    best_count, best_inl = c, inl
+            if best_count >= cfg.min_part_points:
+                break
         if best_count < cfg.min_part_points:
             break
         # refine: refit on the consensus set, re-collect inliers
@@ -124,10 +139,11 @@ def segment(ts: TrackSet, cfg: SegmentationConfig = SegmentationConfig()) -> Seg
             Rr = np.stack([p.R for p in poses])
             tr = np.stack([p.t for p in poses])
             score = _robust_point_score(_point_residuals(ts, Rr, tr), ts.visible)
-            inl = (score < cfg.inlier_tol) & unassigned
+            inl = (score < tol) & unassigned
         if inl.sum() < cfg.min_part_points:
             break
         parts.append(np.flatnonzero(inl))
+        tols.append(tol)
         unassigned &= ~inl
 
     if not parts:
@@ -139,8 +155,8 @@ def segment(ts: TrackSet, cfg: SegmentationConfig = SegmentationConfig()) -> Seg
         _robust_point_score(_point_residuals(ts, np.stack([p.R for p in pp]), np.stack([p.t for p in pp])), ts.visible)
         for pp in part_poses
     ])
-    labels = np.argmin(scores, axis=0)
-    labels[scores.min(axis=0) > 2 * cfg.inlier_tol] = -1
+    labels = np.argmin(scores / np.asarray(tols)[:, None], axis=0)
+    labels[scores[labels, np.arange(N)] > 2 * np.asarray(tols)[labels]] = -1
     # drop parts that lost their support, then refit
     keep = [i for i in range(len(parts)) if (labels == i).sum() >= cfg.min_part_points]
     remap = {old: new for new, old in enumerate(keep)}
