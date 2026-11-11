@@ -36,23 +36,24 @@ whether the twin was good enough to act on, not just good enough to look at.
      position servos track it. That avoids the windup you get from integrating IK on a lagging
      measured state.
    - On Apollo the IK spans torso yaw, torso pitch and the 7-DoF arm.
-   - Both robots get gravity-compensation feedforward. Apollo's model has realistic joint friction,
+   - Both robots get MuJoCo's ideal body gravity compensation (`gravcomp`), not a modelled feedforward. Apollo's model has realistic joint friction,
      so it also gets task-space integral action while reaching, faded out once it has grasped.
-   - The hand closes (a MuJoCo `connect` constraint) **only if it is within 3 cm of the real part's
-     surface**. A twin that puts the handle in the wrong place misses, and the miss counts as a failure.
+   - The grasp (a MuJoCo `connect` constraint at the hand's current position) engages **only if the hand
+     is within 3 cm of the real part's surface**; in the generic website runs it engaged about 2 cm out. A twin that puts the handle in the wrong place misses, and the miss counts as a failure.
    - Once grasped, the hand follows the twin-predicted path of the point it *actually* holds.
 4. **Score in the truth.** Recorded: the opening reached on the true joint, the peak grasp force, the
    hand's deviation from its planned path, and whether the grasp happened. The same task is replayed
    with the true joint (the oracle).
-   - **Feasible:** the oracle grasps, opens the part at least 90%, and peaks at 120 N or less.
+   - **Feasible:** the oracle grasps, reaches at least 90% of the planned opening (85% of the joint's observed range), and peaks at 120 N or less.
    - **Success:** the twin plan does the same with at most 10 N more peak force than the oracle.
    - Tasks the robot cannot do even with the true joint are reported as infeasible, never as passes.
 
 ## Results (reproduce: `objectmodel task-bench`, `objectmodel task fridge --robot apollo`)
 
 Task suite: every first-level door, drawer and lid on 5 objects, generic humanoid (stiff position-
-controlled arm). 7 of 10 tasks are feasible; the dresser and fridge doors are too heavy for it even
-with the true joint, and are reported as infeasible rather than passed.
+controlled arm). 7 of 10 tasks are feasible. On the dresser and fridge doors the stiff arm can't follow the wide arc
+closely enough even with the true joint (416–615 N peak, about 50 mm tracking error; Apollo opens the
+same doors at 45–50 N), so they are reported as infeasible rather than passed.
 
 | Twin used for planning | Tasks that succeed | Median extra grasp force | Worst extra grasp force | Grasp missed |
 |---|---|---|---|---|
@@ -63,10 +64,12 @@ with the true joint, and are reported as infeasible rather than passed.
 | Twin + 15° axis error | 0% | +125 N | +181 N | 5 |
 
 On a stiff arm even a 2° axis error makes the arm fight the joint. At 10° the twin also places the
-drawer handles off the drawer fronts, so the hand misses.
+drawer handles off the drawer fronts, so the hand misses; the 10° and 15° force figures come from the
+2 tasks that still grasped.
 
-ObjectModel's twins land within about 0.2° of the true axis at 1 mm tracking noise (see the main
-README benchmark), so they sit inside the ~1° point where the stiff arm starts to fail.
+ObjectModel's twins average 0.18° of axis error at 1 mm tracking noise (main README benchmark; at most
+0.35° in these task runs), but 0.7° at 3 mm noise. That is inside the stiff arm's tolerance, though not
+by a wide margin: failures begin between 0.5° and 1°. Noisier captures need a more compliant controller.
 
 On the public Apollo model (`objectmodel task-bench --robot apollo`), all 10 tasks are feasible.
 Its joints are compliant, so a wrong twin shows up as hand-path deviation rather than force:
@@ -74,7 +77,7 @@ Its joints are compliant, so a wrong twin shows up as hand-path deviation rather
 | Twin used for planning | Tasks that succeed | Grasp missed | Median extra hand deviation | Worst extra grasp force |
 |---|---|---|---|---|
 | ObjectModel's measured twin | **100%** | 0 | +0 mm | +6 N |
-| Twin + 2° | 100% | 0 | +0 mm | +2 N |
+| Twin + 2° | 100% | 0 | −1 mm | +2 N |
 | Twin + 5° | 100% | 0 | +3 mm | +5 N |
 | Twin + 10° | 80% | 2 | +21 mm | +8 N |
 | Twin + 15° | 60% | 2 | +41 mm | +25 N |
@@ -94,7 +97,7 @@ which are currently open):
 | Team / role (as posted) | What they ask for | Where it shows up here |
 |---|---|---|
 | **Developer Experience SWE intern** | C++/Python/TS, Git, Linux, experience with AI coding agents, tools that help engineers deploy and test | One-command CLI (`objectmodel task`, `plan`, `bench`, `task-bench`), an MCP server so agents can reconstruct, plan and run humanoid tasks, a hosted REST API and playground, CI on every push, 142 tests, a dev server that mirrors production |
-| **Robotics SWE intern, real-time controls** | C++, coordinate frames, linear algebra, physics, actuators | A C++17/Eigen core (`cpp/twin_core.cpp`) for Kabsch, joint fitting and the DLS IK step. It matches NumPy to ~1e-16, fits revolute joints ~30× faster than the vectorised NumPy path (benchmarking it also exposed a full-matrix SVD that made the NumPy path 16× slower than needed; fixed), and takes 0.16 µs per IK step. Also: quaternion and RPY conventions checked URDF-vs-MJCF to 0.00 mm, and servo tracking under constraint load |
+| **Robotics SWE intern, real-time controls** | C++, coordinate frames, linear algebra, physics, actuators | A C++17/Eigen core (`cpp/twin_core.cpp`) for Kabsch, joint fitting and the DLS IK step. It matches NumPy to ~1e-16, fits revolute joints ~30× faster than the vectorised NumPy path (benchmarking it also exposed a full-matrix SVD that made the NumPy path 16× slower than needed; fixed), and does one damped-least-squares solve (3×9 Jacobian) in 0.16 µs, timed inside C++; the control loop itself still runs in Python with MuJoCo Jacobians. Also: quaternion and RPY conventions checked URDF-vs-MJCF to 0.00 mm, and servo tracking under constraint load |
 | **Motion control and planning** | MuJoCo/Isaac/Drake, whole-body control | Upper-body IK across torso and arm on the Apollo model, stance planning against the predicted handle arc, constraint-force metrics |
 | **Simulation, core platform, sim-to-real** | MuJoCo or Isaac Lab, CI, "accurate enough for controls validation", system ID | Simulator-in-the-loop validation of every twin (compile, replay, collision sweep, stability), estimating joint parameters from motion (a system-ID cousin), noise and camera-motion sweeps, a reproducible benchmark harness |
 | **Autonomy intern** | Python/C++, ROS 2, validate in sim then on hardware | An end-to-end perceive → model → plan → act → verify loop in sim. *Not yet ROS 2: see next steps.* |
@@ -110,7 +113,8 @@ A one-page PDF version of this brief: [`docs/ObjectModel_Apptronik_brief.pdf`](O
 pip install -e ".[dev]"
 objectmodel task kitchen_cabinet                 # generic humanoid opens the door and drawer
 objectmodel task kitchen_cabinet --perturb 10    # the same, planned from a twin with a 10° axis error
-objectmodel task-bench --out docs/task_bench.md  # the table above
+objectmodel task-bench --out docs/task_bench.md  # the table above (overwrites the file)
+objectmodel task-bench --errors 0 0.5 1 1.5       # the fine sweep near the threshold
 objectmodel plan kitchen_cabinet --out plan.json # the plan as JSON, for another stack
 
 # the public Apollo model (Apache-2.0, Google DeepMind / MuJoCo Menagerie)
@@ -126,7 +130,7 @@ MUJOCO_GL=egl objectmodel task fridge --robot apollo --video fridge.mp4
   Next: couple this to a whole-body controller so the robot can step and crouch to low handles.
 - **The robot does not collide** with the object during the task. Next: enable contacts and add a
   collision-aware stance and IK.
-- **The control loop runs in Python.** The C++ core already holds the kinematics it needs. Next: move the
+- **The control loop runs in Python.** The C++ core has the DLS solve, but FK and Jacobians still come from MuJoCo. Next: move the
   1 kHz loop into C++ and add a ROS 2 node that publishes the twin and the `objectmodel plan` JSON as messages (`/object_model`,
   `/task_plan`), so the same plan drives a sim or a real robot.
 - **Captures are synthetic**, with exact ground truth. Next: real RGB-D captures of real cabinets,

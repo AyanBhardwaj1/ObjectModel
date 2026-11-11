@@ -40,7 +40,7 @@
       <div class="hum-copy">
         <p class="rise" style="--i:1">A humanoid gets only the measured twin: where the handle is, which way the part moves and how far. It plans its stance and reach from that, then opens the object in a separate MuJoCo world built from the object's ground truth. If the twin were wrong, the arm would be fighting the hinge, and the grasp force would show it.</p>
         <ul class="pivot-list rise" style="--i:2">
-          <li>Measured twin: every feasible door, drawer and lid opens, with no more force than a plan using the true joint.</li>
+          <li>Measured twin: every feasible door, drawer and lid opens within 6&nbsp;N of the force a plan with the true joint needs.</li>
           <li>Stiff generic arm: a 2° axis error already makes every task fight the joint.</li>
           <li>Compliant Apollo model: tolerates 5°, then starts to miss handles and drift off the path.</li>
         </ul>
@@ -57,7 +57,7 @@
       <div class="hum-acc-text">
         <h2 id="acc-title">How accurate is accurate enough?</h2>
         <p>Every first-level door, drawer and lid on five objects. Each row plans from ObjectModel's twin, plus a deliberate axis error, and is judged against the same task planned with the true joint. A stiff arm shows a bad twin as extra grasp force; Apollo's compliant arm absorbs it and shows it as hand-path deviation instead.</p>
-        <p>On the stiff arm every degree of axis error costs about 9&nbsp;N of extra grasp force: all tasks pass at 0.5°, about half fail at 1°. ObjectModel's twins land within about 0.2° of the true axis. Three heavy doors are beyond the generic arm even with the true joint, so they are reported as infeasible rather than counted.</p>
+        <p>On the stiff arm every degree of axis error costs about 9&nbsp;N of extra grasp force: all tasks pass at 0.5°, about half fail at 1°. ObjectModel's twins average 0.18° of axis error at 1&nbsp;mm tracking noise. Three wide doors are beyond the stiff arm even with the true joint, so they are reported as infeasible rather than counted; at 10° and above, the force figures come from the two tasks that still grasp.</p>
       </div>
       <div class="table-wrap stack-table">
         <table>
@@ -65,7 +65,7 @@
           <thead><tr><th scope="col">Twin</th><th scope="col" class="n">Stiff arm</th><th scope="col" class="n">Extra force</th><th scope="col" class="n">Apollo</th><th scope="col" class="n">Extra path</th></tr></thead>
           <tbody>
             <tr><td data-label="Twin">Measured twin</td><td class="n pass" data-label="Stiff arm">100%</td><td class="n" data-label="Extra force">0&nbsp;N</td><td class="n pass" data-label="Apollo">100%</td><td class="n" data-label="Extra path">0&nbsp;mm</td></tr>
-            <tr><td data-label="Twin">Twin + 2°</td><td class="n" data-label="Stiff arm">0%</td><td class="n" data-label="Extra force">19&nbsp;N</td><td class="n pass" data-label="Apollo">100%</td><td class="n" data-label="Extra path">0&nbsp;mm</td></tr>
+            <tr><td data-label="Twin">Twin + 2°</td><td class="n" data-label="Stiff arm">0%</td><td class="n" data-label="Extra force">19&nbsp;N</td><td class="n pass" data-label="Apollo">100%</td><td class="n" data-label="Extra path">−1&nbsp;mm</td></tr>
             <tr><td data-label="Twin">Twin + 5°</td><td class="n" data-label="Stiff arm">0%</td><td class="n" data-label="Extra force">50&nbsp;N</td><td class="n pass" data-label="Apollo">100%</td><td class="n" data-label="Extra path">3&nbsp;mm</td></tr>
             <tr><td data-label="Twin">Twin + 10°</td><td class="n" data-label="Stiff arm">0%</td><td class="n" data-label="Extra force">79&nbsp;N</td><td class="n" data-label="Apollo">80%</td><td class="n" data-label="Extra path">21&nbsp;mm</td></tr>
             <tr><td data-label="Twin">Twin + 15°</td><td class="n" data-label="Stiff arm">0%</td><td class="n" data-label="Extra force">125&nbsp;N</td><td class="n" data-label="Apollo">60%</td><td class="n" data-label="Extra path">41&nbsp;mm</td></tr>

@@ -33,7 +33,7 @@
 <body>
   <div class="top">
     <div>
-      <h1>Film a cabinet. Get its URDF.<br>Then a humanoid opens it.</h1>
+      <h1>Capture a cabinet's motion. Get its URDF.<br>Then a humanoid opens it.</h1>
       <p class="lede"><b>ObjectModel</b> turns a capture of an articulated object into a measured, MuJoCo-validated digital twin. <b>Twin-to-Task</b> hands that twin to a humanoid, either the public Apollo model or a generic upper body. The humanoid opens the object in a simulation of its <i>ground truth</i>, so the simulator scores whether the twin is good enough to act on.</p>
       <p class="tag">Independent student project · not affiliated with Apptronik · Apollo model: Google DeepMind MuJoCo Menagerie (Apache-2.0)</p>
     </div>
@@ -47,12 +47,12 @@
         <thead><tr><th>Twin used to plan</th><th class="n">Stiff arm</th><th class="n">Extra force</th><th class="n">Apollo</th><th class="n">Extra path</th></tr></thead>
         <tbody>
           <tr><td>ObjectModel twin</td><td class="n ok">100%</td><td class="n">0 N</td><td class="n ok">100%</td><td class="n">0 mm</td></tr>
-          <tr><td>+2° axis error</td><td class="n">0%</td><td class="n">19 N</td><td class="n ok">100%</td><td class="n">0 mm</td></tr>
+          <tr><td>+2° axis error</td><td class="n">0%</td><td class="n">19 N</td><td class="n ok">100%</td><td class="n">−1 mm</td></tr>
           <tr><td>+5°</td><td class="n">0%</td><td class="n">50 N</td><td class="n ok">100%</td><td class="n">3 mm</td></tr>
           <tr><td>+10°</td><td class="n">0%</td><td class="n">79 N</td><td class="n">80%</td><td class="n">21 mm</td></tr>
         </tbody>
       </table>
-      <p style="margin-top:6px;font-size:8.5pt">Doors, drawers and lids on 5 objects, each judged against the same task planned with the true joint (7 feasible on the stiff arm, 10 on Apollo). A stiff arm shows a bad twin as force; Apollo's compliant arm shows it as path error. The twins are within about 0.2° of the true axis at 1&nbsp;mm tracking noise.</p>
+      <p style="margin-top:6px;font-size:8.5pt">Doors, drawers and lids on 5 objects, each judged against the same task planned with the true joint (7 feasible on the stiff arm, 10 on Apollo). A stiff arm shows a bad twin as force; Apollo's compliant arm shows it as path error. Twins average 0.18° of axis error at 1&nbsp;mm tracking noise; the stiff arm starts failing between 0.5° and 1°. Synthetic captures.</p>
     </div>
     <div class="box">
       <h2>Under the hood</h2>
@@ -61,7 +61,7 @@
         <li>Kinematic trees for chains and branches; mass and inertia; URDF and MJCF exports that agree to 0.00&nbsp;mm</li>
         <li>MuJoCo checks: replay vs capture, collision sweep, stability</li>
         <li>Humanoid: affordances, a stance search over the handle arc, DLS IK on the reference pose (torso and 7-DoF arm on Apollo)</li>
-        <li>C++/Eigen core that matches NumPy to 1e-16: revolute fit about 30× faster, 0.16&nbsp;µs per IK step</li>
+        <li>C++/Eigen core that matches NumPy to 1e-16: revolute fit about 30× faster, 0.16&nbsp;µs per DLS solve</li>
         <li>CLI, REST API, MCP server for AI agents, web playground, CI, 142 tests</li>
       </ul>
     </div>
@@ -72,7 +72,7 @@
     <table class="roles">
       <tbody>
         <tr><td>Developer experience</td><td>CLI, MCP server for AI coding agents, hosted API, CI, a dev server that mirrors production</td></tr>
-        <tr><td>Real-time controls</td><td>Frames and quaternions, DLS IK with nullspace posture, servo tracking under load, a C++ core with sub-µs IK steps</td></tr>
+        <tr><td>Real-time controls</td><td>Frames and quaternions, DLS IK with nullspace posture, servo tracking under load, a C++ core with a sub-µs DLS solve</td></tr>
         <tr><td>Motion planning</td><td>Upper-body IK on the Apollo model, stance planning, constraint-force metrics</td></tr>
         <tr><td>Simulation and sim-to-real</td><td>Simulator-in-the-loop validation, parameter estimation from motion, noise and camera-sway sweeps</td></tr>
         <tr><td>Autonomy and perception</td><td>Perceive → model → plan → act → verify loop; LK tracking, depth lifting, ArUco scale. ROS 2 node is the next step.</td></tr>

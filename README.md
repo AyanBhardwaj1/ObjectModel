@@ -184,9 +184,9 @@ MUJOCO_GL=egl objectmodel task fridge --robot apollo --video fridge.mp4
 | + 5° | 0% | +50 N | 0 |
 | + 10° | 0% | +79 N | 5 |
 
-A task is *feasible* when the plan with the true joint grasps, opens the part at least 90% and peaks at
-120 N or less. A twin *succeeds* when it does the same within 10 N of that plan. Three heavy doors are
-infeasible for the generic stiff arm and are listed as such.
+A task is *feasible* when the plan with the true joint grasps, reaches at least 90% of the planned
+opening and peaks at 120 N or less. A twin *succeeds* when it does the same within 10 N of that plan. Three wide doors are
+infeasible for the generic stiff arm (it cannot follow their arc closely enough) and are listed as such.
 
 On the compliant Apollo model all 10 tasks are feasible. It tolerates more error, and shows it as
 hand-path deviation rather than force: 100% success up to +5°, then 80% at +10° (2 handles missed,
@@ -219,8 +219,8 @@ cmake -S cpp -B cpp/build && cmake --build cpp/build
 python -m objectmodel.native    # parity with NumPy (~1e-16) and timing
 ```
 
-Revolute fitting over 240 frames runs about 30× faster than the (already vectorised) NumPy version, and one IK step takes 0.16 µs
-inside the loop. The Python package works without the C++ core; CI builds it and runs the parity tests.
+Revolute fitting over 240 frames runs about 30× faster than the (already vectorised) NumPy version, and one damped-least-squares solve (3×9
+Jacobian) takes 0.16 µs timed inside C++; the control loop itself still runs in Python. The Python package works without the C++ core; CI builds it and runs the parity tests.
 
 ## Website and hosted API
 
