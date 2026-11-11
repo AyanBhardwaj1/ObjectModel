@@ -2,14 +2,16 @@
 <!--HEADER humanoids-->
 <main>
   <section class="section-tight" aria-labelledby="h-title">
+    <div class="wrap">
+      <h1 id="h-title" class="rise hum-title">Plan from the twin. Open the real thing.</h1>
+    </div>
     <div class="wrap hum-hero">
       <div class="hum-copy">
-        <h1 id="h-title" class="rise">Plan from the twin. Open the real thing.</h1>
         <p class="rise" style="--i:1">A humanoid gets only the measured twin: where the handle is, which way the part moves and how far. It plans its stance and reach from that, then opens the object in a separate MuJoCo world built from the object's ground truth. If the twin were wrong, the arm would be fighting the hinge, and the grasp force would show it.</p>
         <ul class="pivot-list rise" style="--i:2">
-          <li>Measured twin: all 10 doors, drawers and lids open, with no more force than a plan using the true joint.</li>
-          <li>Twin with a 2° axis error: 4 of 10 tasks already fail.</li>
-          <li>Runs on the public Apollo model as well as a generic humanoid.</li>
+          <li>Measured twin: every feasible door, drawer and lid opens, with no more force than a plan using the true joint.</li>
+          <li>Stiff generic arm: a 2° axis error already makes every task fight the joint.</li>
+          <li>Compliant Apollo model: tolerates 5°, then starts to miss handles and drift off the path.</li>
         </ul>
       </div>
       <figure class="hum-video shutter">
@@ -23,19 +25,19 @@
     <div class="wrap hum-acc">
       <div class="hum-acc-text">
         <h2 id="acc-title">How accurate is accurate enough?</h2>
-        <p>Every first-level door, drawer and lid on five objects, opened by the generic humanoid. Each row plans from ObjectModel's twin, plus a deliberate axis error. Extra force is the grasp force above what the same task needs when planned with the true joint.</p>
-        <p>ObjectModel's twins land within about 0.2° of the true axis, well below the point where tasks start to fail.</p>
+        <p>Every first-level door, drawer and lid on five objects. Each row plans from ObjectModel's twin, plus a deliberate axis error, and is judged against the same task planned with the true joint. A stiff arm shows a bad twin as extra grasp force; Apollo's compliant arm absorbs it and shows it as hand-path deviation instead.</p>
+        <p>ObjectModel's twins land within about 0.2° of the true axis, an order of magnitude inside the stiffer robot's tolerance. Three heavy doors are beyond the generic arm even with the true joint, so they are reported as infeasible rather than counted.</p>
       </div>
       <div class="table-wrap stack-table">
         <table>
-          <caption class="sr-only">Task success and extra grasp force by twin axis error</caption>
-          <thead><tr><th scope="col">Twin used for planning</th><th scope="col" class="n">Tasks that succeed</th><th scope="col" class="n">Median extra force</th><th scope="col" class="n">Worst extra force</th></tr></thead>
+          <caption class="sr-only">Task success by twin axis error on the generic arm (7 feasible tasks) and the Apollo model (10 tasks)</caption>
+          <thead><tr><th scope="col">Twin</th><th scope="col" class="n">Stiff arm</th><th scope="col" class="n">Extra force</th><th scope="col" class="n">Apollo</th><th scope="col" class="n">Extra path</th></tr></thead>
           <tbody>
-            <tr><td data-label="Twin">Measured twin</td><td class="n pass" data-label="Succeed">100%</td><td class="n" data-label="Median extra">0&nbsp;N</td><td class="n" data-label="Worst extra">3&nbsp;N</td></tr>
-            <tr><td data-label="Twin">Twin + 2°</td><td class="n" data-label="Succeed">60%</td><td class="n" data-label="Median extra">16&nbsp;N</td><td class="n" data-label="Worst extra">35&nbsp;N</td></tr>
-            <tr><td data-label="Twin">Twin + 5°</td><td class="n" data-label="Succeed">30%</td><td class="n" data-label="Median extra">56&nbsp;N</td><td class="n" data-label="Worst extra">225&nbsp;N</td></tr>
-            <tr><td data-label="Twin">Twin + 10°</td><td class="n" data-label="Succeed">0%</td><td class="n" data-label="Median extra">116&nbsp;N</td><td class="n" data-label="Worst extra">823&nbsp;N</td></tr>
-            <tr><td data-label="Twin">Twin + 15°</td><td class="n" data-label="Succeed">0%</td><td class="n" data-label="Median extra">175&nbsp;N</td><td class="n" data-label="Worst extra">1070&nbsp;N</td></tr>
+            <tr><td data-label="Twin">Measured twin</td><td class="n pass" data-label="Stiff arm">100%</td><td class="n" data-label="Extra force">0&nbsp;N</td><td class="n pass" data-label="Apollo">100%</td><td class="n" data-label="Extra path">0&nbsp;mm</td></tr>
+            <tr><td data-label="Twin">Twin + 2°</td><td class="n" data-label="Stiff arm">0%</td><td class="n" data-label="Extra force">19&nbsp;N</td><td class="n pass" data-label="Apollo">100%</td><td class="n" data-label="Extra path">0&nbsp;mm</td></tr>
+            <tr><td data-label="Twin">Twin + 5°</td><td class="n" data-label="Stiff arm">0%</td><td class="n" data-label="Extra force">50&nbsp;N</td><td class="n pass" data-label="Apollo">100%</td><td class="n" data-label="Extra path">3&nbsp;mm</td></tr>
+            <tr><td data-label="Twin">Twin + 10°</td><td class="n" data-label="Stiff arm">0%</td><td class="n" data-label="Extra force">79&nbsp;N</td><td class="n" data-label="Apollo">80%</td><td class="n" data-label="Extra path">21&nbsp;mm</td></tr>
+            <tr><td data-label="Twin">Twin + 15°</td><td class="n" data-label="Stiff arm">0%</td><td class="n" data-label="Extra force">125&nbsp;N</td><td class="n" data-label="Apollo">60%</td><td class="n" data-label="Extra path">41&nbsp;mm</td></tr>
           </tbody>
         </table>
       </div>
@@ -77,23 +79,26 @@ MUJOCO_GL=egl objectmodel task fridge --robot apollo --video fridge.mp4</code></
   </section>
 </main>
 <style>
-.hum-hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(28px, 4vw, 64px); align-items: center; }
+.hum-title { font-size: var(--t-display); max-width: 11em; margin-bottom: clamp(32px, 4vw, 56px); }
+.hum-hero { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: clamp(28px, 4vw, 64px); align-items: start; }
 .hum-copy { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
-.hum-copy h1 { font-size: var(--t-heading); max-width: 11em; }
+.hum-copy p { max-width: 42ch; }
 .hum-video { position: relative; margin: 0; background: var(--surface); border-top-right-radius: var(--swing); }
 .hum-video video { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-top-right-radius: var(--swing); }
 .hum-band { background: var(--surface); }
 .hum-acc { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(28px, 4vw, 64px); align-items: start; }
 .hum-acc-text { display: flex; flex-direction: column; gap: 18px; }
+.hum-acc-text p { max-width: 60ch; }
 .hum-acc .table-wrap { margin-top: 0; background: var(--bg); }
+.hum-acc td:first-child { white-space: nowrap; }
 .hum-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .hum-steps figure { margin: 0; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .hum-steps .tile { aspect-ratio: 16 / 10; background: var(--surface); }
 .hum-steps figcaption { display: flex; flex-direction: column; gap: 6px; }
 .hum-steps figcaption h3 { font-size: var(--t-statement); }
 .hum-run { display: flex; flex-direction: column; gap: 24px; }
-.hum-run .small { max-width: 80ch; }
-@media (max-width: 900px) { .hum-hero, .hum-acc { grid-template-columns: 1fr; } .hum-steps { grid-template-columns: 1fr; } .hum-video, .hum-video video { border-top-right-radius: 72px; } }
+.hum-run .small { max-width: 65ch; }
+@media (max-width: 900px) { .hum-title { font-size: 10vw; } .hum-hero, .hum-acc { grid-template-columns: 1fr; } .hum-steps { grid-template-columns: 1fr; } .hum-video, .hum-video video { border-top-right-radius: 72px; } }
 </style>
 <script>
 document.querySelectorAll('[data-pause]').forEach((b) => {

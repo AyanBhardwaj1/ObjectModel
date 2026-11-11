@@ -175,12 +175,20 @@ bash scripts/fetch_menagerie.sh                   # public Apollo model (Google 
 MUJOCO_GL=egl objectmodel task fridge --robot apollo --video fridge.mp4
 ```
 
-| Twin used for planning | Tasks that succeed | Median extra grasp force | Worst |
+| Twin used for planning (generic arm, 7 feasible tasks) | Succeed | Median extra grasp force | Grasp missed |
 |---|---|---|---|
-| Measured twin | 100% | 0 N | 3 N |
-| + 2° axis error | 60% | 16 N | 35 N |
-| + 5° | 30% | 56 N | 225 N |
-| + 10° | 0% | 116 N | 823 N |
+| Measured twin | 100% | +0 N | 0 |
+| + 2° axis error | 0% | +19 N | 0 |
+| + 5° | 0% | +50 N | 0 |
+| + 10° | 0% | +79 N | 5 |
+
+A task is *feasible* when the plan with the true joint grasps, opens the part at least 90% and peaks at
+120 N or less. A twin *succeeds* when it does the same within 10 N of that plan. Three heavy doors are
+infeasible for the generic stiff arm and are listed as such.
+
+On the compliant Apollo model all 10 tasks are feasible. It tolerates more error, and shows it as
+hand-path deviation rather than force: 100% success up to +5°, then 80% at +10° (2 handles missed,
++21 mm deviation) and 60% at +15° (+41 mm). See `docs/task_bench_apollo.md`.
 
 How it works:
 - **Affordance:** handle, pull or swing, closed end, handle path.
@@ -232,7 +240,7 @@ honours dark mode and reduced motion.
 ## Development
 
 ```bash
-python -m pytest -q        # 131 tests (+1 Apollo test when the model is installed, +5 C++ parity tests when built): math, estimation accuracy, export, validation, agent, video, MCP
+python -m pytest -q        # 135 tests (+1 Apollo test when the model is installed, +5 C++ parity tests when built): math, estimation accuracy, export, validation, agent, video, MCP
 ```
 
 The research behind the design is in [`reports/`](reports/) with notes in [`research_notes/`](research_notes/).

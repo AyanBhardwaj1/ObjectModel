@@ -1,0 +1,58 @@
+{
+ "apollo-fridge-left-door": {
+  "joint": "door_1_hinge",
+  "kind": "swing",
+  "opened_fraction": 0.987,
+  "peak_force_n": 17.728,
+  "mean_force_n": 10.899,
+  "max_track_mm": 48.009,
+  "success": true,
+  "oracle_peak_force_n": 18.0,
+  "excess_peak_n": 0.0,
+  "robot": "apollo",
+  "object": "fridge",
+  "part": "left_door"
+ },
+ "apollo-kitchen-cabinet-drawer": {
+  "joint": "drawer_slide",
+  "kind": "pull",
+  "opened_fraction": 0.987,
+  "peak_force_n": 13.819,
+  "mean_force_n": 11.283,
+  "max_track_mm": 18.195,
+  "success": true,
+  "oracle_peak_force_n": 13.6,
+  "excess_peak_n": 0.2,
+  "robot": "apollo",
+  "object": "kitchen_cabinet",
+  "part": "drawer"
+ },
+ "generic-kitchen-cabinet-door": {
+  "joint": "door_hinge",
+  "kind": "swing",
+  "opened_fraction": 1.001,
+  "peak_force_n": 143.79,
+  "mean_force_n": 50.323,
+  "max_track_mm": 27.105,
+  "success": true,
+  "oracle_peak_force_n": 150.1,
+  "excess_peak_n": 0.0,
+  "robot": "generic",
+  "object": "kitchen_cabinet",
+  "part": "door"
+ },
+ "generic-dresser-drawer1": {
+  "joint": "drawer_2_slide",
+  "kind": "pull",
+  "opened_fraction": 0.991,
+  "peak_force_n": 36.436,
+  "mean_force_n": 18.209,
+  "max_track_mm": 7.282,
+  "success": true,
+  "oracle_peak_force_n": 36.0,
+  "excess_peak_n": 0.4,
+  "robot": "generic",
+  "object": "dresser",
+  "part": "drawer1"
+ }
+}

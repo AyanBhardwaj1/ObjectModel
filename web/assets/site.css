@@ -108,6 +108,7 @@ code, pre, kbd { font-family: var(--font-code); }
 .theme-btn:hover { background: var(--surface); }
 .theme-btn svg { width: 20px; height: 20px; }
 @media (max-width: 720px) { .nav .wide { display: none; } .nav a { padding: 8px 6px; } }
+@media (max-width: 480px) { .brand span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } .site-header .wrap { gap: 8px; } }
 
 /* ---------- hero: headline upper-left, the stage cut by the swing ---------- */
 .hero { position: relative; overflow: hidden; }

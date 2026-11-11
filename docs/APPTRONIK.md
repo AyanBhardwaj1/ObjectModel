@@ -41,21 +41,38 @@ whether the twin was good enough to act on, not just good enough to look at.
 
 ## Results (reproduce: `objectmodel task-bench`, `objectmodel task fridge --robot apollo`)
 
-Task suite: every first-level door, drawer and lid on 5 objects (10 tasks), generic humanoid.
+Task suite: every first-level door, drawer and lid on 5 objects, generic humanoid (stiff position-
+controlled arm). 7 of 10 tasks are feasible; the dresser and fridge doors are too heavy for it even
+with the true joint, and are reported as infeasible rather than passed.
 
-| Twin used for planning | Tasks that succeed | Median extra grasp force | Worst extra grasp force |
-|---|---|---|---|
-| ObjectModel's measured twin | **100%** | **0 N** | 3 N |
-| Twin + 2° axis error | 60% | 16 N | 35 N |
-| Twin + 5° axis error | 30% | 56 N | 225 N |
-| Twin + 10° axis error | 0% | 116 N | 823 N |
-| Twin + 15° axis error | 0% | 175 N | 1070 N |
+| Twin used for planning | Tasks that succeed | Median extra grasp force | Worst extra grasp force | Grasp missed |
+|---|---|---|---|---|
+| ObjectModel's measured twin | **100%** | **+0 N** | +2 N | 0 |
+| Twin + 2° axis error | 0% | +19 N | +24 N | 0 |
+| Twin + 5° axis error | 0% | +50 N | +77 N | 0 |
+| Twin + 10° axis error | 0% | +79 N | +120 N | 5 |
+| Twin + 15° axis error | 0% | +125 N | +181 N | 5 |
+
+On a stiff arm even a 2° axis error makes the arm fight the joint. At 10° the twin also places the
+drawer handles off the drawer fronts, so the hand misses.
 
 ObjectModel's twins land within about 0.2° of the true axis at 1 mm tracking noise (see the main
-README benchmark), so they sit comfortably below the ~2° point where tasks start to fail.
+README benchmark), so they sit below the ~2° point where the stiff arm starts to fail.
 
-On the public Apollo model, all four fridge-door and cabinet tasks succeed with peak grasp forces of
-13–18 N, matching the oracle plan.
+On the public Apollo model (`objectmodel task-bench --robot apollo`), all 10 tasks are feasible.
+Its joints are compliant, so a wrong twin shows up as hand-path deviation rather than force:
+
+| Twin used for planning | Tasks that succeed | Grasp missed | Median extra hand deviation | Worst extra grasp force |
+|---|---|---|---|---|
+| ObjectModel's measured twin | **100%** | 0 | +0 mm | +6 N |
+| Twin + 2° | 100% | 0 | +0 mm | +2 N |
+| Twin + 5° | 100% | 0 | +3 mm | +5 N |
+| Twin + 10° | 80% | 2 | +21 mm | +8 N |
+| Twin + 15° | 60% | 2 | +41 mm | +25 N |
+
+Takeaway: how accurate a twin must be depends on the controller. A stiff arm needs it within ~1°; a
+compliant one tolerates ~5° but pays in path error, which matters near obstacles. Force alone is not a
+complete twin-quality metric, so the bench reports both.
 
 ## How this maps to the roles Apptronik hires for
 

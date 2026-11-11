@@ -44,15 +44,15 @@
     <div class="box">
       <h2>Twin accuracy vs humanoid effort</h2>
       <table>
-        <thead><tr><th>Twin used to plan</th><th class="n">Succeed</th><th class="n">Median extra force</th></tr></thead>
+        <thead><tr><th>Twin used to plan</th><th class="n">Stiff arm</th><th class="n">Extra force</th><th class="n">Apollo</th><th class="n">Extra path</th></tr></thead>
         <tbody>
-          <tr><td>ObjectModel twin</td><td class="n ok">100%</td><td class="n">0 N</td></tr>
-          <tr><td>+2° axis error</td><td class="n">60%</td><td class="n">16 N</td></tr>
-          <tr><td>+5°</td><td class="n">30%</td><td class="n">56 N</td></tr>
-          <tr><td>+10°</td><td class="n">0%</td><td class="n">116 N</td></tr>
+          <tr><td>ObjectModel twin</td><td class="n ok">100%</td><td class="n">0 N</td><td class="n ok">100%</td><td class="n">0 mm</td></tr>
+          <tr><td>+2° axis error</td><td class="n">0%</td><td class="n">19 N</td><td class="n ok">100%</td><td class="n">0 mm</td></tr>
+          <tr><td>+5°</td><td class="n">0%</td><td class="n">50 N</td><td class="n ok">100%</td><td class="n">3 mm</td></tr>
+          <tr><td>+10°</td><td class="n">0%</td><td class="n">79 N</td><td class="n">80%</td><td class="n">21 mm</td></tr>
         </tbody>
       </table>
-      <p style="margin-top:6px;font-size:8.5pt">10 tasks (doors, drawers and lids on 5 objects). Extra force is the grasp force above the same task planned with the true joint. The twins are within about 0.2° of the true axis at 1&nbsp;mm tracking noise.</p>
+      <p style="margin-top:6px;font-size:8.5pt">Doors, drawers and lids on 5 objects, each judged against the same task planned with the true joint (7 feasible on the stiff arm, 10 on Apollo). A stiff arm shows a bad twin as force; Apollo's compliant arm shows it as path error. The twins are within about 0.2° of the true axis at 1&nbsp;mm tracking noise.</p>
     </div>
     <div class="box">
       <h2>Under the hood</h2>
@@ -62,7 +62,7 @@
         <li>MuJoCo checks: replay vs capture, collision sweep, stability</li>
         <li>Humanoid: affordances, a stance search over the handle arc, DLS IK on the reference pose (torso and 7-DoF arm on Apollo)</li>
         <li>C++/Eigen core that matches NumPy to 1e-16: revolute fit about 30× faster, 0.16&nbsp;µs per IK step</li>
-        <li>CLI, REST API, MCP server for AI agents, web playground, CI, 130+ tests</li>
+        <li>CLI, REST API, MCP server for AI agents, web playground, CI, 135 tests</li>
       </ul>
     </div>
   </div>
