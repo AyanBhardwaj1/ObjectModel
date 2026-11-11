@@ -248,6 +248,18 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space:
   .plate-actions a { min-height: 60px; }
 }
 
+/* humanoid teaser: a full field of the accent, the one band that inverts mid-page */
+.teaser { background: var(--field); color: var(--field-ink); }
+.teaser-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(28px, 4vw, 64px); align-items: center; padding-block: clamp(72px, 9vw, 140px); }
+.teaser-text { display: flex; flex-direction: column; gap: 24px; align-items: flex-start; }
+.teaser-text h2 { color: var(--field-ink); }
+.teaser-text p { max-width: 44ch; }
+.teaser-btn { background: var(--field-ink); color: var(--field); }
+.teaser-btn:hover { background: var(--bg); }
+.teaser-figure { margin: 0; }
+.teaser-figure img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-top-right-radius: var(--swing); }
+@media (max-width: 900px) { .teaser-grid { grid-template-columns: 1fr; } .teaser-figure img { border-top-right-radius: 72px; } }
+
 /* code sample */
 .code { background: var(--code-bg); color: var(--code-ink); border-top-right-radius: 40px; overflow: hidden; }
 .code pre { margin: 0; padding: 24px; overflow-x: auto; font-size: var(--t-small); line-height: 1.65; }

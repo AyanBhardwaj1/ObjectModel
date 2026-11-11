@@ -198,6 +198,20 @@ Limits:
 Details and role mapping: [`docs/APPTRONIK.md`](docs/APPTRONIK.md).
 ObjectModel is an independent project, not affiliated with Apptronik.
 
+## C++ core
+
+`cpp/twin_core.cpp` (C++17, Eigen) implements the kinematics that run in estimation and control loops:
+weighted Kabsch, revolute and prismatic joint fitting, and the damped-least-squares IK step. It exposes
+a plain C ABI that `objectmodel.native` loads with ctypes.
+
+```bash
+cmake -S cpp -B cpp/build && cmake --build cpp/build
+python -m objectmodel.native    # parity with NumPy (~1e-16) and timing
+```
+
+Revolute fitting over 240 frames runs about 200–380× faster than NumPy, and one IK step takes 0.16 µs
+inside the loop. The Python package works without the C++ core; CI builds it and runs the parity tests.
+
 ## Website and hosted API
 
 The product site lives in `web/` (built from `site/` by `scripts/build_site.py`) with a Python
@@ -218,7 +232,7 @@ honours dark mode and reduced motion.
 ## Development
 
 ```bash
-python -m pytest -q        # 126 tests (+1 Apollo test when the model is installed): math, estimation accuracy, export, validation, agent, video, MCP
+python -m pytest -q        # 131 tests (+1 Apollo test when the model is installed, +5 C++ parity tests when built): math, estimation accuracy, export, validation, agent, video, MCP
 ```
 
 The research behind the design is in [`reports/`](reports/) with notes in [`research_notes/`](research_notes/).

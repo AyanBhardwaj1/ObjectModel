@@ -59,13 +59,15 @@ which are currently open):
 | Team / role (as posted) | What they ask for | Where it shows up here |
 |---|---|---|
 | **Developer Experience SWE intern** | C++/Python/TS, Git, Linux, experience with AI coding agents, tools that help engineers deploy and test | One-command CLI (`objectmodel task`, `bench`, `task-bench`), an MCP server so agents can call the pipeline, a hosted REST API and playground, CI on every push, 125+ tests, a dev server that mirrors production |
-| **Robotics SWE intern, real-time controls** | Coordinate frames, linear algebra, physics, actuators | Kabsch/screw-axis joint fitting, quaternion and RPY conventions verified URDF-vs-MJCF to 0.00 mm, DLS IK with nullspace posture, servo tracking under constraint load |
+| **Robotics SWE intern, real-time controls** | C++, coordinate frames, linear algebra, physics, actuators | A C++17/Eigen core (`cpp/twin_core.cpp`) for Kabsch, joint fitting and the DLS IK step. It matches NumPy to ~1e-16, fits revolute joints ~200–380× faster, and takes 0.16 µs per IK step. Also: quaternion and RPY conventions checked URDF-vs-MJCF to 0.00 mm, and servo tracking under constraint load |
 | **Motion control and planning** | MuJoCo/Isaac/Drake, whole-body control | Upper-body IK across torso and arm on the Apollo model, stance planning against the predicted handle arc, constraint-force metrics |
 | **Simulation, core platform, sim-to-real** | MuJoCo or Isaac Lab, CI, "accurate enough for controls validation", system ID | Simulator-in-the-loop validation of every twin (compile, replay, collision sweep, stability), estimating joint parameters from motion (a system-ID cousin), noise and camera-motion sweeps, a reproducible benchmark harness |
 | **Autonomy intern** | Python/C++, ROS 2, validate in sim then on hardware | An end-to-end perceive → model → plan → act → verify loop in sim. *Not yet ROS 2: see next steps.* |
 | **Manipulation, motion data, teleop** | FK/IK, retargeting, data pipelines | Twins as reusable task assets (handle, path, limits) that a teleop or learning pipeline could consume, plus IK and FK utilities |
 | **Perception** | CV, PyTorch | LK tracking with forward-backward checks, depth back-projection, RANSAC rigid segmentation, ArUco metric scale |
 | **Fleet Connect (full-stack)** | APIs, Docker/K8s, Python, TypeScript | Python serverless API with input validation and tests, a static web app with live 3D, deploy config |
+
+A one-page PDF version of this brief: [`docs/ObjectModel_Apptronik_brief.pdf`](ObjectModel_Apptronik_brief.pdf).
 
 ## Run it
 
@@ -88,7 +90,8 @@ MUJOCO_GL=egl objectmodel task fridge --robot apollo --video fridge.mp4
   Next: couple this to a whole-body controller so the robot can step and crouch to low handles.
 - **The robot does not collide** with the object during the task. Next: enable contacts and add a
   collision-aware stance and IK.
-- **Everything is in Python.** Next: a C++ IK/servo loop and a ROS 2 node that publishes the twin and the
-  task plan (`/object_model`, `/task_plan`), so the same plan drives a sim or a real robot.
+- **The control loop runs in Python.** The C++ core already holds the kinematics it needs. Next: move the
+  1 kHz loop into C++ and add a ROS 2 node that publishes the twin and the task plan (`/object_model`,
+  `/task_plan`), so the same plan drives a sim or a real robot.
 - **Captures are synthetic**, with exact ground truth. Next: real RGB-D captures of real cabinets,
   scored against measured hinges.
