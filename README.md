@@ -38,6 +38,7 @@ vision-language critic to say it looks right. ObjectModel splits the job the oth
 | Physics | missing / identity inertia | Min-volume boxes, material densities, mass and positive-definite inertia; MJCF in radians with limits |
 | LLM | required | Optional, any OpenAI-compatible endpoint (Llama API, vLLM, Ollama…); output is schema-validated, clamped and sanitised; offline rules otherwise |
 | Evaluation | demo videos | **Built-in benchmark** with ground truth and standard articulation metrics |
+| Moving camera | static rig assumed | **Hand-held capture**: joints are fitted on part-relative motion and the replay runs in the base's frame, so camera ego-motion cancels out |
 | Integration | script | CLI, Python API, **MCP server** for agents |
 
 ## Quick start
@@ -121,6 +122,17 @@ axis error and a 0.3 mm mean pivot error; at 3 mm, 14 of 15 cases are fully corr
 are the faucet's small lever, whose total motion (~13 mm) is close to the noise floor at 3–10 mm.
 Separating it would need a longer motion range.
 
+### Hand-held camera
+
+`objectmodel bench --camera-motion 0.3` adds a smooth whole-scene sway (up to 0.3 rad and 15 cm), so no
+part is static in the observed frame:
+
+| noise | topology | joint type | axis err ° | pivot err mm | state err | unexplained replay mm | sim pass | s/object |
+|---|---|---|---|---|---|---|---|---|
+| 1 mm | 100% | 100% | 0.39 | 0.2 | 0.0018 | 0.00 | 100% | 1.1 |
+| 3 mm | 87% | 87% | 0.97 | 1.1 | 0.0052 | 1.21 | 100% | 1.0 |
+| 6 mm | 67% | 83% | 1.45 | 1.1 | 0.0107 | 2.14 | 100% | 1.0 |
+
 ## How it works
 
 1. **Segmentation.** Sequential RANSAC over rigid-motion hypotheses: a spatially local seed set is fitted
@@ -133,7 +145,7 @@ Separating it would need a longer motion range.
    angle `θ_t = atan2(½ uᵀ vee(R−Rᵀ), (tr R − 1)/2)`; *prismatic*: top singular vector of the
    translations; *fixed*: identity. BIC with a noise-floor variance picks the model, and the posterior
    is reported as confidence. A frame bootstrap gives axis/pivot uncertainty.
-3. **Tree.** The least-moving part is the root; parts are attached Prim-style by the lowest joint
+3. **Tree.** The static part is the root (or the largest part when a hand-held camera makes everything move); parts are attached Prim-style by the lowest joint
    residual plus a contact-gap penalty. The composition of two hinges is not a single hinge, so serial
    chains are recovered correctly.
 4. **Physics.** Minimum-volume oriented boxes (world, PCA and yaw-swept candidates), a density table,
@@ -146,7 +158,7 @@ Separating it would need a longer motion range.
 ## Development
 
 ```bash
-python -m pytest -q        # 60+ tests: math, estimation accuracy, export, validation, agent, video, MCP
+python -m pytest -q        # 85 tests: math, estimation accuracy, export, validation, agent, video, MCP
 ```
 
 The research behind the design is in [`reports/`](reports/) with notes in [`research_notes/`](research_notes/).
@@ -156,7 +168,8 @@ The research behind the design is in [`reports/`](reports/) with notes in [`rese
 - Box collision geometry only; per-part meshes (convex decomposition) are next.
 - Damping and friction can't be identified from kinematics alone and are defaults.
 - The built-in video path handles in-plane motion or needs a depth stack. For hand-held monocular
-  video, feed tracks from a 3D tracker + metric depth model through `objectmodel fit`.
+  video, feed tracks from a 3D tracker + metric depth model through `objectmodel fit` (the estimator
+  and validator handle camera motion).
 - Planned: screw (helical) joints, marker-based camera pose for hand-held capture, USD export,
   PartNet-Mobility benchmark import.
 

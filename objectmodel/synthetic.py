@@ -156,7 +156,11 @@ def generate_tracks(
     dropout: float = 0.05,
     outlier_frac: float = 0.0,
     seed: int = 0,
+    camera_motion: float = 0.0,
 ) -> TrackSet:
+    """camera_motion > 0 simulates a hand-held camera: the whole scene undergoes a
+    smooth rigid motion (rotation up to camera_motion rad, translation up to
+    camera_motion * 0.5 m), so no part is static in the observed frame."""
     rng = np.random.default_rng(seed)
     clouds, labels = [], []
     for i, p in enumerate(obj.parts):
@@ -170,6 +174,15 @@ def generate_tracks(
         for i in range(len(obj.parts)):
             m = labels == i
             pts[t, m] = poses[t][i].apply(base[m])
+    if camera_motion > 0:
+        s_ = np.linspace(0, 1, n_frames)
+        ax = rng.normal(size=3)
+        drift = rng.normal(size=3)
+        drift /= np.linalg.norm(drift)
+        c = base.mean(axis=0)
+        for t in range(n_frames):
+            R = axis_angle_to_matrix(ax, camera_motion * np.sin(np.pi * s_[t]))
+            pts[t] = (pts[t] - c) @ R.T + c + drift * camera_motion * 0.5 * s_[t]
     pts += rng.normal(0, noise, pts.shape)
     if outlier_frac > 0:
         k = int(outlier_frac * len(base))

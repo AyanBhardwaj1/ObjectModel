@@ -18,6 +18,7 @@ from .segmentation import Segmentation
 from .synthetic import TrackSet
 
 GAP_WEIGHT = 0.05  # metres of residual charged per metre of separation
+STATIC_MOTION = 0.004  # metres; mean point motion below which a part counts as static
 
 
 @dataclass
@@ -58,12 +59,24 @@ def _gap(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.min(np.linalg.norm(a[:, None] - b[None], axis=2)))
 
 
+def choose_root(motion: list[float], pts0: list[np.ndarray], static_tol: float) -> int:
+    """Static camera: the part that doesn't move. Hand-held camera (nothing is
+    static): the largest part, which is almost always the base/carcass."""
+    still = int(np.argmin(motion))
+    if motion[still] <= static_tol:
+        return still
+    from .geometry import oriented_bounding_box
+
+    volumes = [float(np.prod(np.maximum(oriented_bounding_box(p)[2], 1e-3))) for p in pts0]
+    return int(np.argmax(volumes))
+
+
 def infer_tree(ts: TrackSet, seg: Segmentation, cfg: JointFitConfig = JointFitConfig()) -> KinematicTree:
     n = seg.n_parts
     pts0 = [ts.points[0, seg.labels == i] for i in range(n)]
     motion = [part_motion(ts, seg, i) for i in range(n)]
-    sizes = [len(p) for p in pts0]
-    root = int(min(range(n), key=lambda i: (round(motion[i], 4), -sizes[i])))
+    static_tol = max(STATIC_MOTION, 3 * cfg.noise_floor)
+    root = choose_root(motion, pts0, static_tol)
     fast = replace(cfg, bootstrap=0)
     cache: dict[tuple[int, int], tuple[float, JointEstimate]] = {}
 

@@ -105,12 +105,27 @@ def _set_qpos(model, m, d, t: int, mujoco) -> None:
         d.qpos[m.jnt_qposadr[jid]] = j.states[t]
 
 
+def _in_root_frame(model, ts: TrackSet, labels: np.ndarray) -> np.ndarray:
+    """Observed points expressed in the root part's frame-0 coordinates.
+
+    The simulated root is welded to the world; a hand-held camera moves the whole
+    scene, so we remove the root's tracked motion before comparing. For a static
+    camera the root pose is ~identity and this is a no-op.
+    """
+    from .segmentation import fit_part_poses
+
+    root_idx = np.flatnonzero(labels == model.root.part_id)
+    poses = fit_part_poses(ts, root_idx)
+    return np.stack([poses[t].inverse().apply(ts.points[t]) for t in range(ts.n_frames)])
+
+
 def _replay(model, ts, labels, m, d, report, mujoco) -> None:
+    obs = _in_root_frame(model, ts, labels)
     mujoco.mj_kinematics(m, d)
     rest = {}
     for l in model.links:
         bid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, l.name)
-        pts = ts.points[0, labels == l.part_id]
+        pts = obs[0, labels == l.part_id]
         rest[l.name] = (bid, (pts - d.xpos[bid]) @ d.xmat[bid].reshape(3, 3), np.flatnonzero(labels == l.part_id))
     sq = {l.name: [] for l in model.links}
     for t in range(ts.n_frames):
@@ -120,7 +135,7 @@ def _replay(model, ts, labels, m, d, report, mujoco) -> None:
             pred = local @ d.xmat[bid].reshape(3, 3).T + d.xpos[bid]
             vis = ts.visible[t, idx]
             if vis.any():
-                sq[name].append(np.sum((pred[vis] - ts.points[t, idx][vis]) ** 2, axis=1))
+                sq[name].append(np.sum((pred[vis] - obs[t, idx][vis]) ** 2, axis=1))
     allsq = []
     for name, chunks in sq.items():
         if chunks:

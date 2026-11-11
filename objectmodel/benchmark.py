@@ -36,9 +36,9 @@ def _owner(gt_labels, mask) -> int:
     return int(vals[np.argmax(counts)]) if len(vals) else -1
 
 
-def evaluate(name: str, noise: float, seed: int) -> CaseResult:
+def evaluate(name: str, noise: float, seed: int, camera_motion: float = 0.0) -> CaseResult:
     obj = s.CATALOGUE[name]()
-    ts = s.generate_tracks(obj, noise=noise, seed=seed)
+    ts = s.generate_tracks(obj, noise=noise, seed=seed, camera_motion=camera_motion)
     t0 = time.time()
     nan = float("nan")
     try:
@@ -74,9 +74,9 @@ def evaluate(name: str, noise: float, seed: int) -> CaseResult:
     )
 
 
-def run_benchmark(noises=(0.001, 0.003, 0.006), seeds=(0, 1, 2), objects=None) -> list[CaseResult]:
+def run_benchmark(noises=(0.001, 0.003, 0.006), seeds=(0, 1, 2), objects=None, camera_motion: float = 0.0) -> list[CaseResult]:
     objects = objects or list(s.CATALOGUE)
-    return [evaluate(o, n, sd) for n in noises for o in objects for sd in seeds]
+    return [evaluate(o, n, sd, camera_motion) for n in noises for o in objects for sd in seeds]
 
 
 def _nanmean(xs) -> float:

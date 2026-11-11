@@ -94,3 +94,17 @@ def test_trackset_validates_shapes():
         s.TrackSet(np.zeros((5, 3)), np.ones((5, 3), bool))
     with pytest.raises(ValueError):
         s.TrackSet(np.full((2, 2, 3), np.nan), np.ones((2, 2), bool))
+
+
+@pytest.mark.parametrize("name", list(s.CATALOGUE))
+def test_handheld_camera_motion_recovers_tree_and_validates(name):
+    from objectmodel.pipeline import run
+
+    obj = s.CATALOGUE[name]()
+    ts = s.generate_tracks(obj, seed=3, camera_motion=0.3)
+    res = run(ts, use_llm=False)
+    seg = res.segmentation
+    owner = {i: _majority(ts.labels, seg.labels == i)[0] for i in range(seg.n_parts)}
+    got = {(obj.parts[owner[e.parent]].name, obj.parts[owner[e.child]].name, e.joint.type) for e in res.tree.edges}
+    assert got == {(j.parent, j.child, j.type) for j in obj.joints}
+    assert res.validation.passed, res.validation.to_dict()

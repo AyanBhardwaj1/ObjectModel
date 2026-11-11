@@ -80,7 +80,7 @@ def cmd_bench(args) -> int:
     from .benchmark import per_object_table, run_benchmark, summarize_table
 
     noises = tuple(float(n) / 1000 for n in args.noise)
-    results = run_benchmark(noises=noises, seeds=tuple(range(args.seeds)))
+    results = run_benchmark(noises=noises, seeds=tuple(range(args.seeds)), camera_motion=args.camera_motion)
     text = "## By noise level\n\n" + summarize_table(results) + "\n\n## By object\n\n" + per_object_table(results) + "\n"
     print(text)
     if args.out:
@@ -124,6 +124,7 @@ def build_parser() -> argparse.ArgumentParser:
     b = sub.add_parser("bench", help="run the synthetic benchmark")
     b.add_argument("--noise", nargs="+", default=["1", "3", "6"], help="noise levels in mm")
     b.add_argument("--seeds", type=int, default=3)
+    b.add_argument("--camera-motion", type=float, default=0.0, help="simulate a hand-held camera (rad of sway)")
     b.add_argument("--out")
     b.set_defaults(fn=cmd_bench)
 
