@@ -52,8 +52,8 @@ ul { padding-left:18px; margin:6px 0; color:var(--muted); }
   <h2>Issues</h2>
   <ul id="issues"></ul>
 </aside>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js" integrity="sha384-wagZhIFgY4hD+7awjQjR4e2E294y6J2HSnd8eTNc15ZubTeQeVRZwhQJ+W6hnBsf" crossorigin="anonymous"></script>
 <script>
 const SCENE = __SCENE_JSON__;
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -152,7 +152,7 @@ SCENE.joints.forEach(j => {
   const val = el('div', 'row'); const cur = el('span', null, fmt(j, 0));
   val.append(el('span', null, `${fmt(j, lo)} … ${fmt(j, hi)}`), cur);
   s.addEventListener('input', () => { playing = false; setJoint(j, +s.value); cur.textContent = fmt(j, +s.value); });
-  const meta = el('div', 'row'); meta.append(el('span', null, `confidence ${(j.confidence * 100).toFixed(1)}%`), el('span', null, `axis ±${j.axis_std_deg}° · pivot ±${j.origin_std_mm} mm`));
+  const meta = el('div', 'row'); meta.append(el('span', null, `confidence ${(j.confidence * 100).toFixed(1)}%`), el('span', null, (j.axis_std_deg == null ? 'uncertainty n/a' : `axis ±${j.axis_std_deg}° · pivot ±${j.origin_std_mm} mm`)));
   const meter = el('div', 'meter'); const fill = el('i'); fill.style.width = (j.confidence * 100) + '%'; fill.style.background = '#' + confColor(j.confidence).toString(16).padStart(6, '0'); meter.append(fill);
   card.append(head, s, val, meta, meter); jointsDiv.append(card); sliders[j.name] = { s, cur, j };
 });

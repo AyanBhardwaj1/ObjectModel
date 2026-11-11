@@ -4,6 +4,14 @@ from __future__ import annotations
 import numpy as np
 
 
+def _md_escape(text: str) -> str:
+    """Neutralise Markdown/HTML in untrusted text (LLM notes)."""
+    out = str(text).replace("\n", " ")
+    for ch in "\\`*_[]()<>#!|":
+        out = out.replace(ch, "\\" + ch)
+    return out
+
+
 def _fmt_range(j) -> str:
     if j.type in ("revolute", "continuous"):
         return f"{np.degrees(j.lower):.1f}° … {np.degrees(j.upper):.1f}°"
@@ -47,7 +55,7 @@ def render_report(result) -> str:
         lines += ["", "## Issues"]
         lines += [f"- ❌ {e}" for e in v.errors]
         lines += [f"- ⚠️ {w}" for w in v.warnings]
-        lines += [f"- 📝 {n}" for n in m.notes]
+        lines += [f"- 📝 {_md_escape(n)}" for n in m.notes]
     lines += [
         "",
         "## How to read this",

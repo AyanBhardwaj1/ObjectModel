@@ -37,18 +37,28 @@ def run(
     seg_cfg: SegmentationConfig | None = None,
     joint_cfg: JointFitConfig | None = None,
 ) -> Result:
+    notes: list[str] = []
+    anchored = ts.visible[0]
+    if not anchored.all():
+        # Frame 0 defines the rest pose; a track first seen later has no rest position.
+        notes.append(f"dropped {int((~anchored).sum())} tracks not visible in the first frame")
+        ts = TrackSet(ts.points[:, anchored], ts.visible[:, anchored],
+                      None if ts.labels is None else ts.labels[anchored], ts.joint_states, ts.meta)
+        if labels is not None:
+            labels = np.asarray(labels)[anchored]
     sigma = estimate_noise(ts)
     seg_cfg = seg_cfg or adaptive_config(ts)
     if joint_cfg is None:
         base = JointFitConfig()
         joint_cfg = replace(base, noise_floor=max(base.noise_floor, sigma), min_motion=max(base.min_motion, 4 * sigma))
     seg = segmentation_from_labels(ts, labels) if labels is not None else segment(ts, seg_cfg)
+    notes.extend(seg.notes)
     if seg.n_parts < 2:
         raise ValueError("only one rigid part found — move the object's parts during capture")
     tree = infer_tree(ts, seg, joint_cfg)
     ann = annotate(seg, tree, ts, hint=hint, use_llm=use_llm)
     model = build_model(ts, seg, tree, ann.object_name, ann.part_names, ann.materials, ann.joint_names)
-    model.notes.extend(ann.notes)
+    model.notes.extend(notes + ann.notes)
     report = validate(model, ts, seg.labels)
     return Result(ts, seg, tree, ann, model, report)
 

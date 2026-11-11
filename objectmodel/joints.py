@@ -19,6 +19,7 @@ import numpy as np
 from .geometry import Pose, angle_between_axes, axis_angle_to_matrix, rotation_angle, signed_angle_about
 
 JOINT_TYPES = ("fixed", "prismatic", "revolute")
+MIN_BOOTSTRAP_FRAMES = 6
 
 
 @dataclass(frozen=True)
@@ -156,8 +157,11 @@ def fit_joint(
         rms=rms, confidence=probs[kind], type_probs=probs,
         candidates={"fixed": rms_fixed, "prismatic": rms_pris, "revolute": rms_rev},
     )
-    if kind != "fixed" and cfg.bootstrap > 0 and T >= 6:
-        est.axis_std_deg, est.origin_std = _bootstrap(motions, centroid, kind, axis, origin, cfg)
+    if kind != "fixed":
+        if cfg.bootstrap > 0 and T >= MIN_BOOTSTRAP_FRAMES:
+            est.axis_std_deg, est.origin_std = _bootstrap(motions, centroid, kind, axis, origin, cfg)
+        else:
+            est.axis_std_deg = est.origin_std = float("nan")  # unknown, not zero
     return est
 
 

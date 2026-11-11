@@ -19,12 +19,15 @@ from .synthetic import TrackSet
 from .tree import KinematicTree
 
 NAME_RE = re.compile(r"[^A-Za-z0-9_]+")
+RESERVED_NAMES = {"world"}  # MuJoCo's implicit world body; URDF world convention
 
 
 def safe_name(name: str, fallback: str) -> str:
     s = NAME_RE.sub("_", str(name or "")).strip("_")[:48]
     if not s or not s[0].isalpha():
         s = f"{fallback}_{s}" if s else fallback
+    if s.lower() in RESERVED_NAMES:
+        s = f"{fallback}_{s}"
     return s
 
 
@@ -113,7 +116,8 @@ def build_model(
         geom = part_geometry(pts)
         mat, fill = materials.get(i, ("plastic", None))
         e = edge_of.get(i)
-        origin = geom.center if e is None else np.asarray(e.joint.origin, float)
+        # Root frame = capture world origin, so URDF and MJCF place every link identically.
+        origin = np.zeros(3) if e is None else np.asarray(e.joint.origin, float)
         links.append(Link(names[i], i, origin, geom, physical_props(geom, mat, fill), pts))
     joints = []
     for e in tree.edges:

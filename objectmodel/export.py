@@ -109,6 +109,11 @@ def to_mjcf(model: ArticulatedModel) -> str:
     return "\n".join(out) + "\n"
 
 
+def _num(x: float, nd: int):
+    """JSON-safe rounding: non-finite values become null."""
+    return round(float(x), nd) if np.isfinite(x) else None
+
+
 def to_scene_json(model: ArticulatedModel, max_points: int = 400) -> dict:
     links = []
     for k, l in enumerate(model.links):
@@ -130,7 +135,7 @@ def to_scene_json(model: ArticulatedModel, max_points: int = 400) -> dict:
         "name": j.name, "type": j.type, "parent": j.parent, "child": j.child,
         "axis": j.axis.round(6).tolist(), "origin": j.origin.round(5).tolist(),
         "lower": j.lower, "upper": j.upper, "confidence": round(j.confidence, 4),
-        "axis_std_deg": round(j.axis_std_deg, 3), "origin_std_mm": round(j.origin_std * 1000, 2),
+        "axis_std_deg": _num(j.axis_std_deg, 3), "origin_std_mm": _num(j.origin_std * 1000, 2),
         "rms_mm": round(j.rms * 1000, 3), "states": np.round(j.states, 5).tolist(),
     } for j in model.joints]
     return {"name": model.name, "root": model.root.name, "links": links, "joints": joints, "notes": model.notes}

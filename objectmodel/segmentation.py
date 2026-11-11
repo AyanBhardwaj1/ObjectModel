@@ -8,7 +8,7 @@ best-fitting part, which is harmless for joint estimation.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -28,6 +28,7 @@ class SegmentationConfig:
 
 RELAX_FACTORS = (1.0, 1.5, 2.0, 3.0)
 MIN_SEED_VISIBILITY = 0.8
+MIN_LABEL_POINTS = 6
 
 
 @dataclass
@@ -35,6 +36,7 @@ class Segmentation:
     labels: np.ndarray  # (N,) part id, -1 = outlier
     poses: list[list[Pose]]  # [part][frame] mapping frame-0 coords -> frame t
     residual_rms: np.ndarray  # (n_parts,)
+    notes: list[str] = field(default_factory=list)
 
     @property
     def n_parts(self) -> int:
@@ -187,12 +189,18 @@ def _part_rms(ts: TrackSet, idx: np.ndarray, poses: list[Pose]) -> float:
 
 def segmentation_from_labels(ts: TrackSet, labels: np.ndarray) -> Segmentation:
     """Use externally supplied part labels (e.g. SAM masks) instead of RANSAC."""
-    labels = np.asarray(labels, int)
+    labels = np.asarray(labels, int).copy()
     if labels.shape != (ts.n_points,):
         raise ValueError("labels must have one entry per track")
+    notes = []
+    for i in np.unique(labels[labels >= 0]):
+        n = int((labels == i).sum())
+        if n < MIN_LABEL_POINTS:
+            labels[labels == i] = -1
+            notes.append(f"ignored part label {int(i)}: only {n} tracks (need {MIN_LABEL_POINTS})")
     ids = sorted(int(i) for i in np.unique(labels) if i >= 0)
     remap = {old: new for new, old in enumerate(ids)}
     lab = np.array([remap.get(int(l), -1) for l in labels])
     poses = [fit_part_poses(ts, np.flatnonzero(lab == i)) for i in range(len(ids))]
     rms = np.array([_part_rms(ts, np.flatnonzero(lab == i), poses[i]) for i in range(len(ids))])
-    return Segmentation(lab, poses, rms)
+    return Segmentation(lab, poses, rms, notes)

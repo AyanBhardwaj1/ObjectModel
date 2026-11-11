@@ -47,6 +47,8 @@ def _cv2():
 
 def read_frames(path: str, cfg: VideoConfig) -> list[np.ndarray]:
     cv2 = _cv2()
+    if cfg.stride < 1 or cfg.max_frames < 3:
+        raise ValueError("stride must be >= 1 and max_frames >= 3")
     cap = cv2.VideoCapture(path)
     if not cap.isOpened():
         raise FileNotFoundError(f"cannot open video {path}")

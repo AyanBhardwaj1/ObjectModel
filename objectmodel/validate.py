@@ -62,7 +62,9 @@ def static_checks(model: ArticulatedModel) -> tuple[list[str], list[str]]:
             errors.append(f"joint {j.name}: empty limit range")
         if j.confidence < 0.9:
             warnings.append(f"joint {j.name}: low type confidence ({j.confidence:.2f})")
-        if j.axis_std_deg > 5:
+        if j.type != "fixed" and not np.isfinite(j.axis_std_deg):
+            warnings.append(f"joint {j.name}: uncertainty not estimated (too few frames)")
+        elif j.axis_std_deg > 5:
             warnings.append(f"joint {j.name}: uncertain axis (±{j.axis_std_deg:.1f}°) — record a wider motion range")
     return errors, warnings
 

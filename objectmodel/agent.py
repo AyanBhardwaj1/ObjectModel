@@ -13,6 +13,7 @@ any failure falls back to deterministic geometric rules.
 """
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import time
@@ -174,7 +175,19 @@ class LLMConfig:
         return LLMConfig(url.rstrip("/"), key, model)
 
 
-def chat_json(cfg: LLMConfig, system: str, user: str, opener=urllib.request.urlopen) -> dict:
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, "redirects are not followed (API key protection)", headers, fp)
+
+
+_SAFE_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
+def _open(req, timeout):
+    return _SAFE_OPENER.open(req, timeout=timeout)
+
+
+def chat_json(cfg: LLMConfig, system: str, user: str, opener=_open) -> dict:
     body = json.dumps({
         "model": cfg.model,
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
@@ -191,12 +204,14 @@ def chat_json(cfg: LLMConfig, system: str, user: str, opener=urllib.request.urlo
             with opener(req, timeout=TIMEOUT_S) as resp:
                 payload = json.loads(resp.read().decode())
             content = payload["choices"][0]["message"]["content"]
+            if not isinstance(content, str):
+                raise ValueError("response has no text content (refusal or tool call?)")
             return _extract_json(content)
         except urllib.error.HTTPError as exc:
             last = exc
             if exc.code not in RETRYABLE:
                 raise LLMError(f"LLM request failed with HTTP {exc.code}") from exc
-        except (urllib.error.URLError, TimeoutError) as exc:
+        except (urllib.error.URLError, TimeoutError, http.client.HTTPException, ConnectionError) as exc:
             last = exc
         except (KeyError, IndexError, ValueError) as exc:
             raise LLMError(f"malformed LLM response: {exc}") from exc
@@ -262,6 +277,6 @@ def annotate(seg, tree, ts, hint: str | None = None, use_llm: bool | None = None
         system = SYSTEM_PROMPT % sorted(DENSITY)
         data = chat_json(cfg, system, json.dumps(summary))
         return parse_llm_annotation(data, summary, fallback)
-    except (LLMError, ValueError, TypeError) as exc:
-        fallback.notes.append(f"LLM annotation failed, used geometric rules: {exc}")
+    except Exception as exc:  # any LLM failure degrades to rules, recorded in the report
+        fallback.notes.append(f"LLM annotation failed ({type(exc).__name__}), used geometric rules: {exc}")
         return fallback

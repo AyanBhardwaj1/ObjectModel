@@ -33,6 +33,13 @@ def _summary(result, files) -> str:
     return "\n".join(lines)
 
 
+def _positive_int(text: str) -> int:
+    v = int(text)
+    if v < 1:
+        raise argparse.ArgumentTypeError("must be >= 1")
+    return v
+
+
 def _llm_flag(args) -> bool | None:
     return False if args.no_llm else None
 
@@ -108,8 +115,8 @@ def build_parser() -> argparse.ArgumentParser:
     v.add_argument("--depth", help=".npy depth stack (T,H,W) metres; omit for planar motion")
     v.add_argument("--scale-mm", type=float, help="known width of the object's widest extent in mm")
     v.add_argument("--marker-mm", type=float, help="side length of a printed ArUco 4x4 marker in view (mm)")
-    v.add_argument("--max-frames", type=int, default=120)
-    v.add_argument("--stride", type=int, default=1)
+    v.add_argument("--max-frames", type=_positive_int, default=120)
+    v.add_argument("--stride", type=_positive_int, default=1)
     v.add_argument("--hint")
     v.add_argument("--out", default="out/video")
     v.set_defaults(fn=cmd_video)
