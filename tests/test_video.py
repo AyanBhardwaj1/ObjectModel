@@ -56,3 +56,22 @@ def test_depth_lifting_masks_invalid_depth():
     depth = np.zeros((1, 10, 10))
     _, vis = lift_depth(np.zeros((1, 1, 2)), np.ones((1, 1), bool), depth, 60)
     assert not vis.any()
+
+
+def test_aruco_marker_sets_metric_scale(tmp_path):
+    path = str(tmp_path / "laptop_marker.avi")
+    gt = render_synthetic_video(path, "laptop", marker_px=80)
+    # 80 px marker printed at 50 mm -> 0.625 mm/px; base is 300 px -> 187.5 mm
+    ts = tracks_from_video(path, VideoConfig(marker_mm=50))
+    res = run(ts, hint="laptop", use_llm=False)
+    j = res.model.joints[0]
+    assert j.origin[0] == pytest.approx(gt["pivot_px"][0] * 0.000625, rel=0.03)
+    base = res.model.link(res.model.root.name).geometry.size.max()
+    assert base == pytest.approx(0.1875, rel=0.08)
+
+
+def test_missing_marker_is_a_clear_error(tmp_path):
+    path = str(tmp_path / "plain.avi")
+    render_synthetic_video(path, "drawer")
+    with pytest.raises(ValueError, match="ArUco"):
+        tracks_from_video(path, VideoConfig(marker_mm=50))

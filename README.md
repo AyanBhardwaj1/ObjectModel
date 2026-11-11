@@ -61,7 +61,7 @@ kitchen_cabinet: SIM-VALIDATED (replay 2.489 mm, unexplained 0.0 mm, noise σ 1.
 | Command | Input |
 |---|---|
 | `objectmodel fit tracks.npz` | 3D point tracks: `points` (T,N,3) metres, `visible` (T,N). Plug in any tracker + depth (CoTracker, SAM-mask tracks + metric depth). `--labels parts.npy` uses your own per-track part ids (e.g. from SAM masks) and skips segmentation. |
-| `objectmodel video clip.mp4 --scale-mm 304` | A video. Built-in LK tracking with forward-backward checks and automatic background removal. With `--depth depth.npy` (T,H,W metres) points are back-projected in 3D; without it, side-on (in-plane) motion with metric scale from one known dimension. |
+| `objectmodel video clip.mp4 --scale-mm 304` | A video. Built-in LK tracking with forward-backward checks and automatic background removal. With `--depth depth.npy` (T,H,W metres) points are back-projected in 3D; without it, side-on (in-plane) motion with metric scale from a printed ArUco marker (`--marker-mm 50`) or one known dimension (`--scale-mm`). |
 | `objectmodel demo <object>` | Procedural objects with exact ground truth: `laptop`, `drawer_cabinet`, `desk_lamp`, `kitchen_cabinet`, `faucet`. |
 | `objectmodel bench` | The benchmark below. |
 
@@ -157,7 +157,8 @@ The research behind the design is in [`reports/`](reports/) with notes in [`rese
 - Damping and friction can't be identified from kinematics alone and are defaults.
 - The built-in video path handles in-plane motion or needs a depth stack. For hand-held monocular
   video, feed tracks from a 3D tracker + metric depth model through `objectmodel fit`.
-- Planned: screw (helical) joints, ArUco/AprilTag scale, USD export, PartNet-Mobility benchmark import.
+- Planned: screw (helical) joints, marker-based camera pose for hand-held capture, USD export,
+  PartNet-Mobility benchmark import.
 
 ## License
 

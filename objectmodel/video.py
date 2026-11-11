@@ -31,6 +31,7 @@ class VideoConfig:
     stride: int = 1
     max_corners: int = 1500
     scale_mm: float | None = None  # known width (mm) of the moving object's extent in frame 0
+    marker_mm: float | None = None  # side length (mm) of a printed ArUco 4x4 marker in view
     depth: str | None = None  # path to .npy (T,H,W) metres
     fov_deg: float = 60.0  # horizontal field of view for depth back-projection
     keep_background: bool = False
@@ -99,9 +100,27 @@ def drop_background(uv: np.ndarray, vis: np.ndarray) -> np.ndarray:
     return moving | inside
 
 
-def lift_planar(uv: np.ndarray, vis: np.ndarray, scale_mm: float | None, width_px: int) -> np.ndarray:
+def marker_scale(frame: np.ndarray, marker_mm: float) -> float:
+    """Metres per pixel from an ArUco (DICT_4X4_50) marker of known side length."""
+    cv2 = _cv2()
+    if marker_mm <= 0:
+        raise ValueError("marker size must be positive")
+    det = cv2.aruco.ArucoDetector(cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50),
+                                  cv2.aruco.DetectorParameters())
+    corners, ids, _ = det.detectMarkers(frame)
+    if ids is None or len(corners) == 0:
+        raise ValueError("no ArUco 4x4 marker found in the first frame")
+    c = corners[0][0]
+    side_px = float(np.mean([np.linalg.norm(c[i] - c[(i + 1) % 4]) for i in range(4)]))
+    return marker_mm / 1000.0 / side_px
+
+
+def lift_planar(uv: np.ndarray, vis: np.ndarray, scale_mm: float | None, width_px: int,
+                m_per_px: float | None = None) -> np.ndarray:
     """Image-plane motion -> metres in a z-up frame (x right, z up, y into the scene)."""
-    if scale_mm:
+    if m_per_px:
+        pass
+    elif scale_mm:
         extent = np.ptp(uv[0][vis[0]][:, 0])
         m_per_px = scale_mm / 1000.0 / max(extent, 1.0)
     else:
@@ -143,7 +162,8 @@ def tracks_from_video(path: str, cfg: VideoConfig = VideoConfig()) -> TrackSet:
         depth = np.load(cfg.depth, allow_pickle=False)
         pts, vis = lift_depth(uv, vis, depth[:: cfg.stride], cfg.fov_deg)
     else:
-        pts = lift_planar(uv, vis, cfg.scale_mm, frames[0].shape[1])
+        mpp = marker_scale(frames[0], cfg.marker_mm) if cfg.marker_mm else None
+        pts = lift_planar(uv, vis, cfg.scale_mm, frames[0].shape[1], mpp)
     # drop tracks that die almost immediately; they carry no motion information
     alive = vis.mean(axis=0) > 0.5
     pts, vis = pts[:, alive], vis[:, alive]
@@ -153,7 +173,8 @@ def tracks_from_video(path: str, cfg: VideoConfig = VideoConfig()) -> TrackSet:
 
 # ------------------------------------------------------------ synthetic video
 
-def render_synthetic_video(path: str, kind: str = "laptop", frames: int = 60, size=(480, 360), seed: int = 0) -> dict:
+def render_synthetic_video(path: str, kind: str = "laptop", frames: int = 60, size=(480, 360), seed: int = 0,
+                           marker_px: int = 0) -> dict:
     """Side-on render of a 2D articulated object with textured parts. Returns ground truth."""
     cv2 = _cv2()
     rng = np.random.default_rng(seed)
@@ -167,6 +188,11 @@ def render_synthetic_video(path: str, kind: str = "laptop", frames: int = 60, si
         return cv2.GaussianBlur(img, (3, 3), 0)
 
     bg = cv2.GaussianBlur(texture(W, H), (0, 0), 1.0) // 2 + 40
+    if marker_px:
+        mk = cv2.aruco.generateImageMarker(cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50), 3, marker_px)
+        pad = marker_px // 5
+        bg[10:10 + marker_px + 2 * pad, 10:10 + marker_px + 2 * pad] = 255
+        bg[10 + pad:10 + pad + marker_px, 10 + pad:10 + pad + marker_px] = mk
     if kind == "laptop":
         base_rect = (90, 250, 300, 22)  # x, y, w, h (px)
         hinge = np.array([388.0, 250.0])

@@ -63,7 +63,7 @@ def cmd_video(args) -> int:
     from .video import VideoConfig, tracks_from_video
 
     ts = tracks_from_video(args.video, VideoConfig(
-        scale_mm=args.scale_mm, depth=args.depth, max_frames=args.max_frames, stride=args.stride))
+        scale_mm=args.scale_mm, marker_mm=args.marker_mm, depth=args.depth, max_frames=args.max_frames, stride=args.stride))
     result = run(ts, hint=args.hint, use_llm=_llm_flag(args))
     print(_summary(result, write_outputs(result, args.out)))
     return 0
@@ -107,6 +107,7 @@ def build_parser() -> argparse.ArgumentParser:
     v.add_argument("video")
     v.add_argument("--depth", help=".npy depth stack (T,H,W) metres; omit for planar motion")
     v.add_argument("--scale-mm", type=float, help="known width of the object's widest extent in mm")
+    v.add_argument("--marker-mm", type=float, help="side length of a printed ArUco 4x4 marker in view (mm)")
     v.add_argument("--max-frames", type=int, default=120)
     v.add_argument("--stride", type=int, default=1)
     v.add_argument("--hint")
