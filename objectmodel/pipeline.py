@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -12,7 +12,7 @@ from .export import to_mjcf, to_scene_json, to_urdf
 from .joints import JointFitConfig
 from .model import ArticulatedModel, build_model
 from .report import render_report
-from .segmentation import Segmentation, SegmentationConfig, segment, segmentation_from_labels
+from .segmentation import Segmentation, SegmentationConfig, adaptive_config, estimate_noise, segment, segmentation_from_labels
 from .synthetic import TrackSet
 from .tree import KinematicTree, infer_tree
 from .validate import ValidationReport, validate
@@ -34,9 +34,14 @@ def run(
     hint: str | None = None,
     labels: np.ndarray | None = None,
     use_llm: bool | None = None,
-    seg_cfg: SegmentationConfig = SegmentationConfig(),
-    joint_cfg: JointFitConfig = JointFitConfig(),
+    seg_cfg: SegmentationConfig | None = None,
+    joint_cfg: JointFitConfig | None = None,
 ) -> Result:
+    sigma = estimate_noise(ts)
+    seg_cfg = seg_cfg or adaptive_config(ts)
+    if joint_cfg is None:
+        base = JointFitConfig()
+        joint_cfg = replace(base, noise_floor=max(base.noise_floor, sigma), min_motion=max(base.min_motion, 4 * sigma))
     seg = segmentation_from_labels(ts, labels) if labels is not None else segment(ts, seg_cfg)
     if seg.n_parts < 2:
         raise ValueError("only one rigid part found — move the object's parts during capture")

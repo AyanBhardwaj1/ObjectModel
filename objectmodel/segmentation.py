@@ -37,6 +37,30 @@ class Segmentation:
         return len(self.poses)
 
 
+def estimate_noise(ts: TrackSet) -> float:
+    """Per-axis track noise σ (metres) from second temporal differences.
+
+    For smooth motion sampled densely, x[t+1] - 2x[t] + x[t-1] is dominated by
+    measurement noise with std σ·√6. The median over tracks is robust to outliers.
+    """
+    if ts.n_frames < 3:
+        return 0.0
+    v = ts.visible[2:] & ts.visible[1:-1] & ts.visible[:-2]
+    dd = ts.points[2:] - 2 * ts.points[1:-1] + ts.points[:-2]
+    vals = np.abs(dd[v]).ravel()
+    if vals.size == 0:
+        return 0.0
+    return float(np.median(vals) / 0.6745 / np.sqrt(6))
+
+
+def adaptive_config(ts: TrackSet, base: "SegmentationConfig" = None) -> "SegmentationConfig":
+    from dataclasses import replace
+
+    base = base or SegmentationConfig()
+    sigma = estimate_noise(ts)
+    return replace(base, inlier_tol=max(base.inlier_tol, 4.0 * sigma))
+
+
 def _point_residuals(ts: TrackSet, R: np.ndarray, t: np.ndarray) -> np.ndarray:
     """Residual (T,N) of every point under per-frame transforms R (T,3,3), t (T,3)."""
     ref = ts.points[0]

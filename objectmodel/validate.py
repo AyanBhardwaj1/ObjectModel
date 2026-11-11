@@ -28,6 +28,8 @@ class ValidationReport:
     warnings: list[str] = field(default_factory=list)
     replay_rms_mm: dict = field(default_factory=dict)
     replay_overall_mm: float | None = None
+    noise_mm: float = 0.0  # estimated per-axis track noise
+    replay_excess_mm: float | None = None  # replay error not explained by measurement noise
     stable: bool | None = None
     simulator: str = "mujoco"
 
@@ -36,8 +38,8 @@ class ValidationReport:
         return (
             self.compiled
             and not self.errors
-            and self.replay_overall_mm is not None
-            and self.replay_overall_mm < REPLAY_PASS_MM
+            and self.replay_excess_mm is not None
+            and self.replay_excess_mm < REPLAY_PASS_MM
             and bool(self.stable)
         )
 
@@ -65,7 +67,10 @@ def static_checks(model: ArticulatedModel) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
-def validate(model: ArticulatedModel, ts: TrackSet, labels: np.ndarray) -> ValidationReport:
+def validate(model: ArticulatedModel, ts: TrackSet, labels: np.ndarray, noise_sigma: float | None = None) -> ValidationReport:
+    from .segmentation import estimate_noise
+
+    sigma = estimate_noise(ts) if noise_sigma is None else noise_sigma
     errors, warnings = static_checks(model)
     try:
         import mujoco
@@ -76,8 +81,13 @@ def validate(model: ArticulatedModel, ts: TrackSet, labels: np.ndarray) -> Valid
     except Exception as exc:  # compile errors are the finding we report
         return ValidationReport(False, errors + [f"MJCF failed to compile: {exc}"], warnings)
     d = mujoco.MjData(m)
-    report = ValidationReport(True, errors, warnings)
+    report = ValidationReport(True, errors, warnings, noise_mm=round(sigma * 1000, 3))
     _replay(model, ts, labels, m, d, report, mujoco)
+    if report.replay_overall_mm is not None:
+        # Rest-frame and frame-t observations are both noisy: a perfect model still
+        # shows sqrt(2 frames * 3 axes) * sigma of replay error.
+        expected = np.sqrt(6.0) * sigma * 1000
+        report.replay_excess_mm = round(float(np.sqrt(max(0.0, report.replay_overall_mm ** 2 - expected ** 2))), 3)
     report.stable = _stability(model, m, mujoco)
     if not report.stable:
         report.errors.append("passive simulation diverged")

@@ -65,7 +65,7 @@ document.getElementById('title').textContent = SCENE.name;
 const v = SCENE.validation || {};
 const st = document.getElementById('status');
 const badge = el('span', 'badge ' + (v.passed ? 'pass' : 'fail'), v.passed ? 'SIM-VALIDATED' : 'NEEDS REVIEW');
-st.append(badge, el('div', null, `MuJoCo replay error ${v.replay_overall_mm ?? '—'} mm · stable: ${v.stable} · labels: ${SCENE.annotation_source || 'rules'}`));
+st.append(badge, el('div', null, `MuJoCo replay ${v.replay_overall_mm ?? '—'} mm (unexplained by noise: ${v.replay_excess_mm ?? '—'} mm) · stable: ${v.stable} · labels: ${SCENE.annotation_source || 'rules'}`));
 
 const view = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });

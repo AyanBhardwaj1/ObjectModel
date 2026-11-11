@@ -18,7 +18,8 @@ def render_report(result) -> str:
     lines = [
         f"# {m.name} — ObjectModel reconstruction",
         "",
-        f"**Validation:** {status} · simulator replay error **{v.replay_overall_mm} mm** · "
+        f"**Validation:** {status} · simulator replay error **{v.replay_overall_mm} mm** "
+        f"(track noise σ≈{v.noise_mm} mm → unexplained error **{v.replay_excess_mm} mm**) · "
         f"stable: {v.stable} · labels from: {result.annotation.source}",
         "",
         f"{len(m.links)} links, {len(m.joints)} joints, {result.tracks.n_frames} frames, "
