@@ -79,9 +79,9 @@ Its joints are compliant, so a wrong twin shows up as hand-path deviation rather
 | ObjectModel's measured twin | **100%** | 0 | +0 mm | +6 N |
 | Twin + 1° | 100% | 0 | +0 mm | +5 N |
 | Twin + 2° | 100% | 0 | −1 mm | +2 N |
-| Twin + 5° | 100% | 0 | +3 mm | +5 N |
-| Twin + 10° | 80% | 2 | +21 mm | +8 N |
-| Twin + 15° | 60% | 2 | +41 mm | +25 N |
+| Twin + 5° | 100% | 0 | +4 mm | +5 N |
+| Twin + 10° | 80% | 2 | +22 mm | +7 N |
+| Twin + 15° | 60% | 2 | +42 mm | +23 N |
 
 A finer sweep on the stiff arm (`docs/task_bench.md`) puts the threshold near 1°: every degree of axis
 error costs about 9 N of extra grasp force, all 7 tasks pass at +0.5°, 4 of 7 at +1° and 1 of 7 at +1.5°.

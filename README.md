@@ -190,7 +190,7 @@ infeasible for the generic stiff arm (it cannot follow their arc closely enough)
 
 On the compliant Apollo model all 10 tasks are feasible. It tolerates more error, and shows it as
 hand-path deviation rather than force: 100% success up to +5°, then 80% at +10° (2 handles missed,
-+21 mm deviation) and 60% at +15° (+41 mm). See `docs/task_bench_apollo.md`.
++22 mm deviation) and 60% at +15° (+42 mm). See `docs/task_bench_apollo.md`.
 
 How it works:
 - **Affordance:** handle, pull or swing, closed end, handle path.

@@ -29,5 +29,11 @@ What this found and what changed:
   closest parts are its legs next to the fridge.
 - **Still open: the working wrist or forearm cuts into swinging doors** (Apollo's wrist up to 12 cm; the
   generic forearm up to 5 cm). The IK controls the hand's position only, so the forearm is free to lie
-  along the door as it swings. Drawers are fine. The fix is orientation-aware IK (keep the forearm along
-  the approach direction) and then turning robot–object contacts on.
+  along the door as it swings. Drawers are fine.
+- **Tried and reverted: a soft forearm-direction task in the IK.** Two extra DLS rows (weight 0.5) steered
+  the forearm's horizontal direction into the part's face, turning with the planned joint value. On the
+  generic arm the doors still overlapped by 47–58 mm, and the cabinet door became infeasible (277 N peak,
+  76% open) because the forearm task fought the hand-position task while the door swung toward the
+  robot. It did clear the laptop lid (+9 mm from −11 mm). A real fix needs a different grasp for doors
+  (hook the free edge, or rotate the hand around the handle with a wrist-orientation task), then
+  robot–object contacts on.
