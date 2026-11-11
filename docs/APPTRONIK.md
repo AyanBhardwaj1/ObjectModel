@@ -22,6 +22,8 @@ whether the twin was good enough to act on, not just good enough to look at.
 3. Run `objectmodel task kitchen_cabinet --perturb 5` and compare with the run without `--perturb`. Same
    robot and same object, only the twin differs.
 4. Skim `objectmodel/humanoid.py` (planning and control) and `cpp/twin_core.cpp` (the C++ core).
+5. For how the project handles its own failures, read `docs/clearance.md`: a check that found a collision
+   the simulator was hiding, the fix, and an attempted fix that didn't work.
 
 ## What the robot does
 
@@ -100,7 +102,7 @@ which are currently open):
 | **Developer Experience SWE intern** | C++/Python/TS, Git, Linux, experience with AI coding agents, tools that help engineers deploy and test | One-command CLI (`objectmodel task`, `plan`, `bench`, `task-bench`), an MCP server so agents can reconstruct, plan and run humanoid tasks, a hosted REST API and playground, CI on every push, 142 tests, a dev server that mirrors production |
 | **Robotics SWE intern, real-time controls** | C++, coordinate frames, linear algebra, physics, actuators | A C++17/Eigen core (`cpp/twin_core.cpp`) for Kabsch, joint fitting and the DLS IK step. It matches NumPy to ~1e-16, fits revolute joints ~30× faster than the vectorised NumPy path (benchmarking it also exposed a full-matrix SVD that made the NumPy path 16× slower than needed; fixed), and does one damped-least-squares solve (3×9 Jacobian) in 0.16 µs, timed inside C++; the control loop itself still runs in Python with MuJoCo Jacobians. Also: quaternion and RPY conventions checked URDF-vs-MJCF to 0.00 mm, and servo tracking under constraint load |
 | **Motion control and planning** | MuJoCo/Isaac/Drake, whole-body control | Upper-body IK across torso and arm on the Apollo model, stance planning against the predicted handle arc, constraint-force metrics |
-| **Simulation, core platform, sim-to-real** | MuJoCo or Isaac Lab, CI, "accurate enough for controls validation", system ID | Simulator-in-the-loop validation of every twin (compile, replay, collision sweep, stability), estimating joint parameters from motion (a system-ID cousin), noise and camera-motion sweeps, a reproducible benchmark harness |
+| **Simulation, core platform, sim-to-real** | MuJoCo or Isaac Lab, CI, "accurate enough for controls validation", system ID | Simulator-in-the-loop validation of every twin (compile, replay, collision sweep, stability), estimating joint parameters from motion (a system-ID cousin), noise and camera-motion sweeps, a reproducible benchmark harness, and a robot–object clearance check that caught Apollo's idle arm swinging into the object (`docs/clearance.md`) |
 | **Autonomy intern** | Python/C++, ROS 2, validate in sim then on hardware | An end-to-end perceive → model → plan → act → verify loop in sim. *Not yet ROS 2: see next steps.* |
 | **Manipulation, motion data, teleop** | FK/IK, retargeting, data pipelines | Twins as reusable task assets: `objectmodel plan <object>` exports a versioned JSON plan per part (handle, approach direction, joint limits, stance, arm and the handle path along the joint) for a teleop, learning or ROS 2 stack to consume. Plus IK and FK utilities |
 | **Perception** | CV, PyTorch | LK tracking with forward-backward checks, depth back-projection, RANSAC rigid segmentation, ArUco metric scale |
