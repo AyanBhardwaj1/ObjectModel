@@ -4,18 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ObjectModel Viewer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Cpath d=%22M4 28V4a24 24 0 0 1 24 24z%22 fill=%22%2338450f%22/%3E%3C/svg%3E">
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-:root { --bg:#f6f7f9; --panel:#ffffff; --ink:#1b1f24; --muted:#5d6670; --line:#dde1e6; --accent:#2f6fdb; --ok:#1f8a4c; --warn:#b26a00; --bad:#c43c3c; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#121417; --panel:#1b1e23; --ink:#e7eaee; --muted:#9aa3ad; --line:#2c3138; --accent:#6ea2ff; --ok:#4cc27f; --warn:#e2a23b; --bad:#ff7070; color-scheme:dark; } }
-:root[data-theme="dark"] { --bg:#121417; --panel:#1b1e23; --ink:#e7eaee; --muted:#9aa3ad; --line:#2c3138; --accent:#6ea2ff; --ok:#4cc27f; --warn:#e2a23b; --bad:#ff7070; color-scheme:dark; }
+:root { --bg:#ecebe7; --panel:#e1dfd9; --ink:#2f3a0c; --muted:#525c2f; --line:#d3d0c7; --accent:#38450f; --accent-ink:#ecebe7; --ok:#3d6b1f; --warn:#8a5a00; --bad:#9b2c1c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#171a10; --panel:#21261a; --ink:#e8e6de; --muted:#b9bca6; --line:#30362a; --accent:#c3cf8a; --accent-ink:#171a10; --ok:#9fd07a; --warn:#e2b24f; --bad:#f08a76; color-scheme:dark; } }
+:root[data-theme="dark"] { --bg:#171a10; --panel:#21261a; --ink:#e8e6de; --muted:#b9bca6; --line:#30362a; --accent:#c3cf8a; --accent-ink:#171a10; --ok:#9fd07a; --warn:#e2b24f; --bad:#f08a76; color-scheme:dark; }
 * { box-sizing:border-box; }
 body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; display:grid; grid-template-columns:minmax(0,1fr) 340px; height:100%; }
 html { height:100%; }
 #view { position:relative; min-height:320px; }
 #view canvas { display:block; width:100%; height:100%; }
 aside { background:var(--panel); border-left:1px solid var(--line); overflow:auto; padding-block:16px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); }
-select { width:100%; padding:7px 8px; border-radius:6px; border:1px solid var(--line); background:var(--bg); color:var(--ink); font:inherit; margin-bottom:12px; }
+select { width:100%; padding:7px 8px; border-radius:6px; border:1px solid var(--line); background-color:var(--bg); color:var(--ink); font:inherit; margin-bottom:12px; }
 .eyebrow { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:4px; }
 .desc { color:var(--muted); margin:2px 0 8px; }
 :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
@@ -28,14 +29,15 @@ h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(-
 .joint .row { display:flex; justify-content:space-between; gap:8px; color:var(--muted); font-size:12px; }
 .joint b { color:var(--ink); }
 input[type=range] { width:100%; accent-color:var(--accent); }
-button { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:7px 12px; font-weight:600; cursor:pointer; }
+button { background:var(--accent); color:var(--accent-ink); border:0; border-radius:6px; padding:7px 12px; font-weight:600; cursor:pointer; }
 button.secondary { background:transparent; color:var(--ink); border:1px solid var(--line); }
 .controls { display:flex; gap:8px; flex-wrap:wrap; }
 label.toggle { display:flex; gap:6px; align-items:center; color:var(--muted); margin-top:8px; }
 ul { padding-left:18px; margin:6px 0; color:var(--muted); }
 .meter { height:4px; background:var(--line); border-radius:2px; overflow:hidden; margin-top:4px; }
 .meter > i { display:block; height:100%; }
-body.embed { grid-template-columns:1fr; }
+body.embed { grid-template-columns:1fr; grid-template-rows:100%; height:100vh; height:100dvh; }
+body.embed #view { height:100%; }
 body.embed aside { display:none; }
 @media (max-width: 760px) { body { grid-template-columns:1fr; grid-template-rows:55vh auto; height:auto; } aside { border-left:0; border-top:1px solid var(--line); } }
 </style>
@@ -44,7 +46,7 @@ body.embed aside { display:none; }
 <div id="view"></div>
 <aside>
   <label for="picker" id="pickerLabel" class="eyebrow" hidden>Object</label>
-  <select id="picker" hidden></select>
+  <select id="picker" name="object" autocomplete="off" hidden></select>
   <h1 id="title"></h1>
   <p id="desc" class="desc" hidden></p>
   <div id="status"></div>
@@ -71,7 +73,7 @@ const SCENES = DATA.gallery || [DATA];
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const deg = r => (r * 180 / Math.PI).toFixed(1) + '°';
 const fmt = (j, v) => j.type === 'prismatic' ? (v * 1000).toFixed(1) + ' mm' : deg(v);
-const confColor = c => c > 0.95 ? 0x1f8a4c : c > 0.7 ? 0xd08a00 : 0xc43c3c;
+const confColor = c => c > 0.95 ? 0x4f7a1f : c > 0.7 ? 0xc08a1a : 0xb23a2a;
 const $ = id => document.getElementById(id);
 const view = $('view');
 const HAS3D = typeof THREE !== 'undefined' && typeof THREE.OrbitControls !== 'undefined';
@@ -96,6 +98,7 @@ if (HAS3D) {
   stage = new THREE.Group(); scene.add(stage);
   const resize = () => { const w = view.clientWidth, h = view.clientHeight || 400; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); };
   window.addEventListener('resize', resize); resize();
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(resize).observe(view);
 } else {
   const msg = el('div', null, '3D view unavailable (could not load three.js from the CDN). Joint data, sliders and validation results still work.');
   msg.style.cssText = 'padding:24px;color:var(--muted)'; view.append(msg);
@@ -153,8 +156,11 @@ function setJoint(j, q) {
 }
 
 function showFrame(fr) {
-  S.joints.forEach(j => { const q = j.states[Math.min(fr, j.states.length - 1)] || 0; setJoint(j, q); const sl = sliders[j.name]; sl.s.value = q; sl.cur.textContent = fmt(j, q); });
+  const values = [];
+  S.joints.forEach(j => { const q = j.states[Math.min(fr, j.states.length - 1)] || 0; setJoint(j, q); const sl = sliders[j.name]; sl.s.value = q; sl.cur.textContent = fmt(j, q); values.push({ name: j.name, type: j.type, value: q }); });
   $('frame').value = fr;
+  // An embedding page (the landing hero) shows live joint readouts; the values are not sensitive.
+  if (window.parent !== window) window.parent.postMessage({ type: 'om-frame', object: S.name, passed: !!(S.validation || {}).passed, joints: values }, '*');
 }
 
 function mount(scn) {
@@ -187,7 +193,7 @@ function mount(scn) {
   const linksDiv = $('links'); linksDiv.replaceChildren();
   S.links.forEach(l => { const r = el('div', 'joint'); const h = el('div', 'row'); h.append(el('b', null, l.name), el('span', null, `${l.material} · ${l.mass} kg`)); r.append(h, el('div', 'row', 'size ' + l.box.size.map(x => (x * 1000).toFixed(0)).join(' × ') + ' mm')); linksDiv.append(r); });
   const issues = $('issues'); issues.replaceChildren();
-  [...(v.errors || []).map(e => '❌ ' + e), ...(v.warnings || []).map(w => '⚠️ ' + w), ...(S.notes || []).map(n => '📝 ' + n)].forEach(t => issues.append(el('li', null, t)));
+  [...(v.errors || []).map(e => 'Error: ' + e), ...(v.warnings || []).map(w => 'Warning: ' + w), ...(S.notes || []).map(n => 'Note: ' + n)].forEach(t => issues.append(el('li', null, t)));
   if (!issues.children.length) issues.append(el('li', null, 'none'));
 
   nFrames = Math.max(1, ...S.joints.map(j => j.states.length));
@@ -199,11 +205,11 @@ function mount(scn) {
     buildLink(S.root, stage, new THREE.Vector3(), linkByName, jointByChild);
     const all = new THREE.Box3(); S.links.forEach(l => all.expandByPoint(v3(l.box.center)));
     const c = all.getCenter(new THREE.Vector3());
-    const size = Math.max(0.3, ...S.links.map(l => Math.max(...l.box.size))) * 2.2;
+    const size = Math.max(0.3, ...S.links.map(l => Math.max(...l.box.size))) * (EMBED ? 1.25 : 1.7);
     camera.position.set(c.x + size, c.y - size * 1.3, c.z + size * 0.8); controls.target.copy(c);
   }
   showFrame(0);
-  if (EMBED) playing = true;
+  if (EMBED) playing = !matchMedia('(prefers-reduced-motion: reduce)').matches && !window.__omPaused;
 }
 
 $('play').onclick = () => { playing = !playing; };
@@ -226,6 +232,12 @@ function route() {
   mount(target);
 }
 window.addEventListener('hashchange', route);
+// The embedding page can pause and resume the replay (its own pause button).
+window.addEventListener('message', (ev) => {
+  if (ev.source !== window.parent || !ev.data || ev.data.type !== 'om-control') return;
+  window.__omPaused = !ev.data.play;
+  playing = !!ev.data.play;
+});
 route();
 function loop(t) { requestAnimationFrame(loop); if (playing && t - last > 50) { f = (f + 1) % nFrames; showFrame(f); last = t; } if (HAS3D) { controls.update(); renderer.render(scene, camera); } }
 requestAnimationFrame(loop);

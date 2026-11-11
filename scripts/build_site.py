@@ -28,6 +28,10 @@ WEB = os.path.join(ROOT, "web")
 SITE_URL = os.environ.get("SITE_URL", "https://objectmodel.vercel.app").rstrip("/")
 REPO = "https://github.com/ayanbhardwaj1/objectmodel"
 
+MARK = '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 28V4a24 24 0 0 1 24 24z"/></svg>'
+THEME_ICON = ('<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="2" width="16" height="16" fill="none" '
+              'stroke="currentColor" stroke-width="1.6"/><path d="M2 18V2a16 16 0 0 1 16 16z" fill="currentColor"/></svg>')
+
 HEAD = """<!doctype html>
 <html lang="en">
 <head>
@@ -40,53 +44,67 @@ HEAD = """<!doctype html>
 <meta property="og:type" content="website">
 <meta property="og:image" content="{site}/og.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#d9481f">
+<meta name="theme-color" content="#ecebe7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171a10" media="(prefers-color-scheme: dark)">
 <link rel="canonical" href="{site}{path}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
 <link rel="stylesheet" href="/assets/site.css">
 <script src="/assets/site.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>"""
 
-NAV = [("playground", "/playground", "Playground", ""), ("gallery", "/gallery", "Gallery", "hide-sm"),
-       ("docs", "/docs", "Docs", ""), ("benchmark", "/#benchmark", "Benchmark", "hide-sm")]
+NAV = [("playground", "/playground", "Playground", ""), ("gallery", "/gallery", "Gallery", "wide"),
+       ("docs", "/docs", "Docs", ""), ("benchmark", "/#benchmark", "Benchmark", "wide"), ("github", REPO, "GitHub", "wide")]
 
 
 def header(page: str) -> str:
-    links = "\n      ".join(
-        f'<a href="{href}"{" class=" + chr(34) + cls + chr(34) if cls else ""}'
-        f'{" aria-current=" + chr(34) + "page" + chr(34) if key == page else ""}>{label}</a>'
-        for key, href, label, cls in NAV)
+    links = []
+    for key, href, label, cls in NAV:
+        attrs = f' class="{cls}"' if cls else ""
+        attrs += ' aria-current="page"' if key == page else ""
+        links.append(f'<a href="{href}"{attrs}>{label}</a>')
     return f"""<header class="site-header">
   <div class="wrap">
-    <a class="brand" href="/"><img class="brand-mark" src="/assets/mark.svg" alt="" width="26" height="26">ObjectModel</a>
+    <a class="brand" href="/" aria-label="ObjectModel home">{MARK}<span translate="no">ObjectModel</span></a>
     <nav class="nav" aria-label="Main">
-      {links}
-      <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle dark mode">◐</button>
-      <a class="btn btn-primary btn-sm" href="{REPO}">GitHub</a>
+      {"".join(links)}
+      <button class="theme-btn" type="button" data-theme-toggle aria-label="Switch between light and dark">{THEME_ICON}</button>
     </nav>
   </div>
 </header>"""
 
 
+WORD = "ObjectModel"
+HEIGHTS = [100, 74, 86, 64, 92, 70, 100, 80, 66, 88, 76]
 FOOTER = f"""<footer class="site-footer">
   <div class="wrap">
-    <span>ObjectModel · MIT licensed · measured, not guessed.</span>
-    <nav aria-label="Footer"><a href="/playground">Playground</a><a href="/gallery">Gallery</a><a href="/docs">Docs</a><a href="/api/reconstruct">API status</a><a href="{REPO}">Source</a></nav>
+    <div class="blocks" aria-hidden="true">{"".join(f'<span style="height:{h}%">{c}</span>' for c, h in zip(WORD, HEIGHTS))}</div>
+    <div class="foot-grid">
+      <nav aria-label="Product"><b>Product</b><a href="/playground">Playground</a><a href="/gallery">Gallery</a><a href="/#benchmark">Benchmark</a></nav>
+      <nav aria-label="Documentation"><b>Docs</b><a href="/docs#install">Install</a><a href="/docs#rest">REST API</a><a href="/docs#mcp">MCP server</a></nav>
+      <nav aria-label="Project"><b>Project</b><a href="{REPO}">Source code</a><a href="{REPO}/blob/main/LICENSE">MIT licence</a><a href="/api/reconstruct">API status</a></nav>
+      <div class="reach">
+        <span>Install from source</span>
+        <code translate="no">pip install "objectmodel[sim] @ git+{REPO}"</code>
+        <span>Call the API</span>
+        <code translate="no">POST {{{{SITE}}}}/api/reconstruct</code>
+      </div>
+    </div>
+    <div class="foot-last"><span>ObjectModel, measured not guessed. MIT licensed.</span><a class="btn btn-sm" href="/playground">Open the playground</a></div>
   </div>
 </footer>
 </body>
 </html>"""
 
-PATHS = {"index": "/", "playground": "/playground", "docs": "/docs"}
+PATHS = {"index": "/", "playground": "/playground", "docs": "/docs", "404": "/404"}
 
 
 def build_pages() -> None:
-    for name in ("index", "playground", "docs"):
+    for name in ("index", "playground", "docs", "404"):
         src = open(os.path.join(ROOT, "site", f"{name}.html")).read()
         m = re.match(r"<!--HEAD (.*?)\|(.*?)-->", src)
         title, desc = m.group(1), m.group(2)
@@ -100,6 +118,16 @@ def build_pages() -> None:
         print("page", name)
 
 
+CDN = "https://cdn.jsdelivr.net/npm/three@0.128.0/"
+LOCAL = "/vendor/three/"
+
+
+def self_host(page: str) -> str:
+    """Serve three.js from the site itself (same bytes, so the SRI hashes still hold)."""
+    return (page.replace(CDN + "build/three.min.js", LOCAL + "three.min.js")
+                .replace(CDN + "examples/js/controls/OrbitControls.js", LOCAL + "OrbitControls.js"))
+
+
 def build_gallery() -> None:
     scenes = []
     for name, factory in s.CATALOGUE.items():
@@ -110,7 +138,7 @@ def build_gallery() -> None:
         scene["annotation_source"] = res.annotation.source
         scene["description"] = obj.description
         scenes.append(scene)
-    page = render_gallery(scenes).replace("<title>ObjectModel Viewer</title>", "<title>Gallery · ObjectModel</title>")
+    page = self_host(render_gallery(scenes)).replace("<title>ObjectModel Viewer</title>", "<title>Gallery · ObjectModel</title>")
     with open(os.path.join(WEB, "gallery.html"), "w") as f:
         f.write(page)
     print("gallery", len(scenes))

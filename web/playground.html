@@ -10,12 +10,13 @@
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://objectmodel.vercel.app/og.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#d9481f">
+<meta name="theme-color" content="#ecebe7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171a10" media="(prefers-color-scheme: dark)">
 <link rel="canonical" href="https://objectmodel.vercel.app/playground">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
 <link rel="stylesheet" href="/assets/site.css">
 <script src="/assets/site.js" defer></script>
 </head>
@@ -23,58 +24,53 @@
 <a class="skip" href="#main">Skip to content</a>
 <header class="site-header">
   <div class="wrap">
-    <a class="brand" href="/"><img class="brand-mark" src="/assets/mark.svg" alt="" width="26" height="26">ObjectModel</a>
+    <a class="brand" href="/" aria-label="ObjectModel home"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 28V4a24 24 0 0 1 24 24z"/></svg><span translate="no">ObjectModel</span></a>
     <nav class="nav" aria-label="Main">
-      <a href="/playground" aria-current="page">Playground</a>
-      <a href="/gallery" class="hide-sm">Gallery</a>
-      <a href="/docs">Docs</a>
-      <a href="/#benchmark" class="hide-sm">Benchmark</a>
-      <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle dark mode">◐</button>
-      <a class="btn btn-primary btn-sm" href="https://github.com/ayanbhardwaj1/objectmodel">GitHub</a>
+      <a href="/playground" aria-current="page">Playground</a><a href="/gallery" class="wide">Gallery</a><a href="/docs">Docs</a><a href="/#benchmark" class="wide">Benchmark</a><a href="https://github.com/ayanbhardwaj1/objectmodel" class="wide">GitHub</a>
+      <button class="theme-btn" type="button" data-theme-toggle aria-label="Switch between light and dark"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="2" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2 18V2a16 16 0 0 1 16 16z" fill="currentColor"/></svg></button>
     </nav>
   </div>
 </header>
 <main id="main" class="wrap pg">
   <div class="pg-head">
-    <span class="eyebrow">Playground</span>
-    <h1 class="pg-title">Reconstruct an object</h1>
-    <p class="muted">Runs the full pipeline on our servers: segmentation, joint fitting, physics, URDF/MJCF export and MuJoCo validation.</p>
+    <h1 class="rise">Reconstruct an object</h1>
+    <p class="rise" style="--i:1">The full pipeline runs on our servers: parts, joints, physics, URDF and MJCF export, then the MuJoCo checks.</p>
   </div>
   <div class="pg-grid">
     <form class="panel" id="form" novalidate>
-      <div class="tabs" role="tablist">
+      <div class="tabs" role="tablist" aria-label="Input">
         <button type="button" role="tab" id="tab-demo" aria-selected="true" aria-controls="pane-demo">Demo object</button>
         <button type="button" role="tab" id="tab-upload" aria-selected="false" aria-controls="pane-upload">Your tracks</button>
       </div>
       <div id="pane-demo" role="tabpanel" aria-labelledby="tab-demo" class="pane">
         <label class="field" for="object"><span>Object</span>
-          <select id="object" name="object">
-            <option value="kitchen_cabinet">Kitchen cabinet · door + drawer</option>
-            <option value="dresser">Dresser · 3 drawers + door</option>
-            <option value="desk_lamp">Desk lamp · two-link chain</option>
-            <option value="laptop">Laptop · hinged lid</option>
-            <option value="fridge">Fridge · mirrored doors</option>
-            <option value="drawer_cabinet">Drawer cabinet · one slider</option>
-            <option value="faucet">Faucet · swivel + lever</option>
+          <select id="object" name="object" autocomplete="off">
+            <option value="kitchen_cabinet">Kitchen cabinet: door and drawer</option>
+            <option value="dresser">Dresser: three drawers and a door</option>
+            <option value="desk_lamp">Desk lamp: two-link chain</option>
+            <option value="laptop">Laptop: hinged lid</option>
+            <option value="fridge">Fridge: mirrored doors</option>
+            <option value="drawer_cabinet">Drawer cabinet: one slider</option>
+            <option value="faucet">Faucet: swivel spout and lever</option>
           </select>
         </label>
-        <label class="field" for="noise"><span>Tracking noise <output id="noise-out" class="mono">1.0 mm</output></span>
-          <input id="noise" name="noise" type="range" min="0" max="10" step="0.5" value="1">
+        <label class="field" for="noise"><span>Tracking noise <output id="noise-out" for="noise" class="num">1.0&nbsp;mm</output></span>
+          <input id="noise" name="noise_mm" type="range" min="0" max="10" step="0.5" value="1">
         </label>
-        <label class="field" for="sway"><span>Hand-held camera sway <output id="sway-out" class="mono">off</output></span>
-          <input id="sway" name="sway" type="range" min="0" max="0.5" step="0.05" value="0">
+        <label class="field" for="sway"><span>Hand-held camera sway <output id="sway-out" for="sway" class="num">off</output></span>
+          <input id="sway" name="camera_motion" type="range" min="0" max="0.5" step="0.05" value="0">
         </label>
         <label class="field" for="seed"><span>Random seed</span>
-          <input id="seed" name="seed" type="number" min="0" max="9999" value="0" inputmode="numeric">
+          <input id="seed" name="seed" type="number" min="0" max="9999" value="0" inputmode="numeric" autocomplete="off">
         </label>
       </div>
       <div id="pane-upload" role="tabpanel" aria-labelledby="tab-upload" class="pane" hidden>
-        <label class="field" for="file"><span>Tracks file (.npz, up to 4 MB)</span>
-          <input id="file" name="file" type="file" accept=".npz">
+        <label class="field" for="file"><span>Tracks file (.npz, up to 4&nbsp;MB)</span>
+          <input id="file" name="tracks" type="file" accept=".npz" autocomplete="off">
         </label>
-        <p class="hint">Arrays: <code>points</code> (T, N, 3) in metres, <code>visible</code> (T, N), optional <code>labels</code> (N). No file handy? <a href="/samples/laptop_tracks.npz" download>Download a sample laptop capture</a>.</p>
+        <p class="hint">It needs <code>points</code> shaped (T, N, 3) in metres and <code>visible</code> shaped (T, N); <code>labels</code> (N) is optional. No file handy? <a href="/samples/laptop_tracks.npz" download>Download a sample laptop capture</a>.</p>
         <label class="field" for="hint"><span>What is it? (optional)</span>
-          <input id="hint" name="hint" type="text" maxlength="80" placeholder="e.g. bedside cabinet">
+          <input id="hint" name="hint" type="text" maxlength="80" placeholder="bedside cabinet…" autocomplete="off" spellcheck="false">
         </label>
       </div>
       <button class="btn btn-primary run" id="run" type="submit">Reconstruct</button>
@@ -83,55 +79,69 @@
 
     <div class="result">
       <div class="viewer-frame"><iframe id="viewer" title="3D viewer of the reconstructed model"></iframe></div>
-      <div class="summary" id="summary"></div>
-      <div class="table-wrap"><table>
-        <thead><tr><th scope="col">Joint</th><th scope="col">Type</th><th scope="col">Parent → child</th><th scope="col" class="n">Range</th><th scope="col" class="n">Confidence</th><th scope="col" class="n">Axis ±</th></tr></thead>
+      <div class="summary" id="summary" aria-live="polite"></div>
+      <div class="table-wrap pg-table"><table>
+        <caption class="sr-only">Estimated joints</caption>
+        <thead><tr><th scope="col">Joint</th><th scope="col">Type</th><th scope="col">Parent to child</th><th scope="col" class="n">Range</th><th scope="col" class="n">Confidence</th><th scope="col" class="n">Axis spread</th></tr></thead>
         <tbody id="joints"></tbody>
       </table></div>
       <div class="downloads" id="downloads"></div>
-      <ul class="issues" id="issues"></ul>
+      <ul class="pivot-list issues" id="issues"></ul>
     </div>
   </div>
 </main>
+<style>
+.pg { padding-block: 32px 120px; }
+.pg-head { display: flex; flex-direction: column; gap: 14px; margin-bottom: 40px; }
+.pg-head h1 { font-size: var(--t-heading); }
+.pg-head p { max-width: 60ch; }
+.pg-grid { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 28px; align-items: start; }
+.panel { background: var(--surface); padding: 20px; display: flex; flex-direction: column; gap: 18px; position: sticky; top: 24px; border-top-right-radius: var(--swing-img); }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.tabs button { font: 600 var(--t-small) var(--font-body); border: 0; padding: 12px 8px; background: var(--sunken); color: var(--muted); cursor: pointer; transition: background-color .15s ease, color .15s ease; }
+.tabs button:hover { color: var(--ink); }
+.tabs button[aria-selected="true"] { background: var(--bg); color: var(--ink); }
+.pane { display: flex; flex-direction: column; gap: 18px; }
+.field { display: flex; flex-direction: column; gap: 8px; font-size: var(--t-small); font-weight: 600; }
+.field > span { display: flex; justify-content: space-between; gap: 8px; }
+.field output { font-weight: 500; color: var(--muted); }
+.field select, .field input[type=number], .field input[type=text], .field input[type=file] { font: 400 16px var(--font-body); padding: 11px 12px; border: 1px solid var(--line); background-color: var(--bg); color: var(--ink); width: 100%; min-width: 0; }
+.field input[type=range] { accent-color: var(--accent); width: 100%; min-height: 32px; }
+.hint { font-size: var(--t-small); color: var(--muted); overflow-wrap: anywhere; }
+.hint code { background: var(--bg); padding: 1px 5px; }
+.run { width: 100%; }
+.run[aria-busy="true"] { cursor: progress; background: var(--muted); }
+.result { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.viewer-frame { position: relative; aspect-ratio: 16 / 10; background: var(--surface); overflow: hidden; border-top-right-radius: var(--swing); }
+.viewer-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.summary div { background: var(--surface); padding: 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.summary b { font: 500 var(--t-statement)/1.05 var(--font-display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.summary span { font-size: var(--t-small); color: var(--muted); }
+.summary .ok { color: var(--ok); }
+.summary .bad { color: var(--warn); }
+.pg-table { margin-top: 0; }
+.downloads { display: flex; flex-wrap: wrap; gap: 8px; }
+.issues { font-size: var(--t-small); }
+@media (max-width: 960px) { .pg-grid { grid-template-columns: 1fr; } .panel { position: static; } .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .viewer-frame { border-top-right-radius: 72px; } }
+</style>
+<script src="/assets/playground.js" defer></script>
 <footer class="site-footer">
   <div class="wrap">
-    <span>ObjectModel · MIT licensed · measured, not guessed.</span>
-    <nav aria-label="Footer"><a href="/playground">Playground</a><a href="/gallery">Gallery</a><a href="/docs">Docs</a><a href="/api/reconstruct">API status</a><a href="https://github.com/ayanbhardwaj1/objectmodel">Source</a></nav>
+    <div class="blocks" aria-hidden="true"><span style="height:100%">O</span><span style="height:74%">b</span><span style="height:86%">j</span><span style="height:64%">e</span><span style="height:92%">c</span><span style="height:70%">t</span><span style="height:100%">M</span><span style="height:80%">o</span><span style="height:66%">d</span><span style="height:88%">e</span><span style="height:76%">l</span></div>
+    <div class="foot-grid">
+      <nav aria-label="Product"><b>Product</b><a href="/playground">Playground</a><a href="/gallery">Gallery</a><a href="/#benchmark">Benchmark</a></nav>
+      <nav aria-label="Documentation"><b>Docs</b><a href="/docs#install">Install</a><a href="/docs#rest">REST API</a><a href="/docs#mcp">MCP server</a></nav>
+      <nav aria-label="Project"><b>Project</b><a href="https://github.com/ayanbhardwaj1/objectmodel">Source code</a><a href="https://github.com/ayanbhardwaj1/objectmodel/blob/main/LICENSE">MIT licence</a><a href="/api/reconstruct">API status</a></nav>
+      <div class="reach">
+        <span>Install from source</span>
+        <code translate="no">pip install "objectmodel[sim] @ git+https://github.com/ayanbhardwaj1/objectmodel"</code>
+        <span>Call the API</span>
+        <code translate="no">POST https://objectmodel.vercel.app/api/reconstruct</code>
+      </div>
+    </div>
+    <div class="foot-last"><span>ObjectModel, measured not guessed. MIT licensed.</span><a class="btn btn-sm" href="/playground">Open the playground</a></div>
   </div>
 </footer>
 </body>
 </html>
-<style>
-.pg { padding-block: 40px 88px; }
-.pg-head { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
-.pg-title { font-size: clamp(2rem, 4vw, 2.8rem); }
-.pg-grid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 24px; align-items: start; }
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 80px); }
-.tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--sunken); border-radius: 8px; padding: 3px; gap: 3px; }
-.tabs button { font: 600 0.88rem var(--font-body); border: 0; border-radius: 6px; padding: 8px; background: transparent; color: var(--muted); cursor: pointer; }
-.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px #0000001a; }
-.pane { display: flex; flex-direction: column; gap: 16px; }
-.field { display: flex; flex-direction: column; gap: 6px; font-size: 0.88rem; font-weight: 600; }
-.field > span { display: flex; justify-content: space-between; }
-.field output { font-weight: 400; color: var(--muted); }
-.field select, .field input[type=number], .field input[type=text], .field input[type=file] { font: 400 0.95rem var(--font-body); padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--ink); width: 100%; }
-.field input[type=range] { accent-color: var(--accent); width: 100%; }
-.hint { font-size: 0.84rem; color: var(--muted); }
-.hint code { font-size: 0.8rem; background: var(--sunken); padding: 0 4px; border-radius: 3px; }
-.run { justify-content: center; }
-.run[aria-busy="true"] { opacity: .7; cursor: progress; }
-.result { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.viewer-frame { position: relative; aspect-ratio: 16 / 10; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
-.viewer-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-.summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
-.summary div { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.summary div + div { border-left: 1px solid var(--line); }
-.summary b { font: 600 1.25rem var(--font-display); font-variant-numeric: tabular-nums; }
-.summary span { font-size: 0.8rem; color: var(--muted); }
-.summary .ok { color: var(--ok); }
-.summary .bad { color: var(--warn); }
-.downloads { display: flex; flex-wrap: wrap; gap: 8px; }
-.issues { margin: 0; padding-left: 18px; color: var(--muted); font-size: 0.9rem; display: flex; flex-direction: column; gap: 4px; }
-@media (max-width: 900px) { .pg-grid { grid-template-columns: 1fr; } .panel { position: static; } .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .summary div:nth-child(3) { border-left: 0; } .summary div:nth-child(n+3) { border-top: 1px solid var(--line); } }
-</style>
-<script src="/assets/playground.js" defer></script>

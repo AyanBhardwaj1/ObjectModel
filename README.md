@@ -160,10 +160,27 @@ part is static in the observed frame:
    well, with its link poses required to match the MJCF at rest, mid-range and both limits. A model is
    **SIM-VALIDATED** only if all of these pass.
 
+## Website and hosted API
+
+The product site lives in `web/` (built from `site/` by `scripts/build_site.py`) with a Python
+serverless function in `api/reconstruct.py` that runs the real pipeline. It deploys to Vercel as is
+(`vercel.json`: static `web/` with clean URLs, the function with a 60 s limit).
+
+```bash
+python scripts/build_site.py            # pages, gallery, samples (SITE_URL=... sets canonical links)
+python scripts/dev_server.py 8000       # local preview with the real /api/reconstruct
+node scripts/render_media.js            # re-render product imagery from the viewer (needs the dev server)
+npx vercel deploy --prod                # deploy
+```
+
+Pages: `/` (landing, live replay), `/playground` (run a reconstruction, upload tracks, download files),
+`/gallery` (all demo objects), `/docs`, and a 404. The site self-hosts three.js, needs no build step, and
+honours dark mode and reduced motion.
+
 ## Development
 
 ```bash
-python -m pytest -q        # 100 tests: math, estimation accuracy, export, validation, agent, video, MCP
+python -m pytest -q        # 117 tests: math, estimation accuracy, export, validation, agent, video, MCP
 ```
 
 The research behind the design is in [`reports/`](reports/) with notes in [`research_notes/`](research_notes/).

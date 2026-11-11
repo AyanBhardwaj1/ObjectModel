@@ -3,3 +3,6 @@ __pycache__/
 .pytest_cache/
 out/
 *.egg-info/
+.playwright-cli/
+.ui-improve/
+.taste-skill/

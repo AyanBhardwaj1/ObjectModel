@@ -65,7 +65,9 @@ def to_urdf(model: ArticulatedModel) -> str:
 
 
 MJ_TYPE = {"revolute": "hinge", "continuous": "hinge", "prismatic": "slide"}
-PALETTE = ["0.85 0.55 0.3 1", "0.3 0.6 0.85 1", "0.45 0.75 0.4 1", "0.8 0.4 0.6 1", "0.6 0.5 0.85 1", "0.9 0.8 0.3 1"]
+# Part colours: one family (sand, olive, slate, ochre, sage, clay) so twins read as one object,
+# yet adjacent parts stay distinguishable.
+PALETTE = ["0.80 0.75 0.62 1", "0.42 0.49 0.20 1", "0.35 0.43 0.49 1", "0.76 0.57 0.27 1", "0.56 0.64 0.48 1", "0.62 0.38 0.30 1"]
 
 
 def to_mjcf(model: ArticulatedModel) -> str:
