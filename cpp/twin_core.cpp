@@ -105,7 +105,11 @@ int om_fit_revolute(const double* motions, int T, const double* centroid, double
 int om_fit_prismatic(const double* motions, int T, double* axis_out, double* d_out) {
   if (!motions || !axis_out || !d_out || T < 1) return kBadArgs;
   RowMat Tm(T, 3);
-  for (int k = 0; k < T; ++k) Tm.row(k) = trans_of(motions, k).transpose();
+  for (int k = 0; k < T; ++k) {
+    // element-wise: a vectorised 3-vector -> row copy trips GCC 15's -Warray-bounds inside Eigen's AVX path
+    const Vec3 t = trans_of(motions, k);
+    Tm(k, 0) = t.x(); Tm(k, 1) = t.y(); Tm(k, 2) = t.z();
+  }
   Eigen::JacobiSVD<RowMat> svd(Tm, Eigen::ComputeThinV);
   Vec3 u = svd.matrixV().col(0);
   Eigen::VectorXd d = Tm * u;
