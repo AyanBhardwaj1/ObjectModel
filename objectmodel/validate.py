@@ -12,11 +12,12 @@ from dataclasses import asdict, dataclass, field
 
 import numpy as np
 
-from .export import to_mjcf
+from .export import to_mjcf, to_urdf
 from .model import ArticulatedModel
 from .synthetic import TrackSet
 
 REPLAY_PASS_MM = 10.0
+URDF_TOL_MM = 1.0
 STABILITY_SECONDS = 2.0
 MAX_STABLE_SPEED = 50.0  # rad/s or m/s
 
@@ -32,6 +33,7 @@ class ValidationReport:
     replay_excess_mm: float | None = None  # replay error not explained by measurement noise
     stable: bool | None = None
     collisions: list[str] = field(default_factory=list)  # self-collisions found in the joint sweep
+    urdf_max_dev_mm: float | None = None  # URDF vs MJCF forward-kinematics disagreement
     simulator: str = "mujoco"
 
     @property
@@ -42,6 +44,8 @@ class ValidationReport:
             and self.replay_excess_mm is not None
             and self.replay_excess_mm < REPLAY_PASS_MM
             and bool(self.stable)
+            and self.urdf_max_dev_mm is not None
+            and self.urdf_max_dev_mm < URDF_TOL_MM
         )
 
     def to_dict(self) -> dict:
@@ -91,6 +95,7 @@ def validate(model: ArticulatedModel, ts: TrackSet, labels: np.ndarray, noise_si
         # shows sqrt(2 frames * 3 axes) * sigma of replay error.
         expected = np.sqrt(6.0) * sigma * 1000
         report.replay_excess_mm = round(float(np.sqrt(max(0.0, report.replay_overall_mm ** 2 - expected ** 2))), 3)
+    report.urdf_max_dev_mm = _urdf_crosscheck(model, m, mujoco, report)
     report.collisions = _sweep_collisions(model, m, mujoco)
     report.warnings.extend(report.collisions)
     report.stable = _stability(model, m, mujoco)
@@ -151,6 +156,44 @@ def _replay(model, ts, labels, m, d, report, mujoco) -> None:
             out = np.mean((j.states < j.lower - 1e-6) | (j.states > j.upper + 1e-6))
             if out > 0:
                 report.warnings.append(f"joint {j.name}: {out:.0%} of observed states outside limits")
+
+
+def _urdf_crosscheck(model, m_mjcf, mujoco, report) -> float | None:
+    """Compile the exported URDF too and require identical link poses to the MJCF
+    at rest, mid-range and both limits. Both files are then simulator-proven."""
+    try:
+        m_urdf = mujoco.MjModel.from_xml_string(to_urdf(model))
+    except Exception as exc:  # reported as a finding, not swallowed
+        report.errors.append(f"URDF failed to compile in MuJoCo: {exc}")
+        return None
+    d1, d2 = mujoco.MjData(m_mjcf), mujoco.MjData(m_urdf)
+    movable = [j for j in model.joints if j.type in ("revolute", "prismatic", "continuous")]
+    worst = 0.0
+    for frac in (0.0, 0.5, 1.0, None):
+        for mm, dd in ((m_mjcf, d1), (m_urdf, d2)):
+            dd.qpos[:] = 0
+            for j in movable:
+                q = 0.0 if frac is None else j.lower + frac * (j.upper - j.lower)
+                jid = mujoco.mj_name2id(mm, mujoco.mjtObj.mjOBJ_JOINT, j.name)
+                if jid < 0:
+                    report.errors.append(f"URDF/MJCF mismatch: joint {j.name} missing")
+                    return None
+                dd.qpos[mm.jnt_qposadr[jid]] = q
+            mujoco.mj_kinematics(mm, dd)
+        for link in model.links:
+            b1 = mujoco.mj_name2id(m_mjcf, mujoco.mjtObj.mjOBJ_BODY, link.name)
+            b2 = mujoco.mj_name2id(m_urdf, mujoco.mjtObj.mjOBJ_BODY, link.name)
+            if b2 < 0:  # MuJoCo fuses the static URDF root into the world body
+                if link.name != model.root.name:
+                    report.errors.append(f"URDF/MJCF mismatch: link {link.name} missing")
+                    return None
+                b2 = 0
+            p1 = d1.xpos[b1] + d1.xmat[b1].reshape(3, 3) @ (link.geometry.center - link.origin)
+            p2 = d2.xpos[b2] + d2.xmat[b2].reshape(3, 3) @ (link.geometry.center - link.origin)
+            worst = max(worst, float(np.linalg.norm(p1 - p2)) * 1000)
+    if worst >= URDF_TOL_MM:
+        report.errors.append(f"URDF and MJCF disagree by {worst:.1f} mm")
+    return round(worst, 4)
 
 
 SWEEP_STEPS = 9

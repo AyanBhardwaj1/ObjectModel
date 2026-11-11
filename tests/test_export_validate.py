@@ -99,3 +99,23 @@ def test_joint_sweep_reports_self_collision(cabinet):
 
 def test_clean_model_has_no_self_collisions(cabinet):
     assert cabinet.validation.collisions == []
+
+
+def test_urdf_crosscheck_passes_for_exported_model(cabinet):
+    assert cabinet.validation.urdf_max_dev_mm is not None and cabinet.validation.urdf_max_dev_mm < 1.0
+
+
+def test_urdf_crosscheck_catches_a_divergent_urdf(cabinet, monkeypatch):
+    import objectmodel.validate as val
+    from objectmodel.export import to_urdf as real
+
+    def broken(model):  # URDF with every hinge axis flipped to x
+        out = real(model)
+        for j in model.joints:
+            if j.type == "revolute":
+                out = out.replace(f'<axis xyz="{" ".join(f"{float(a):.6g}" for a in j.axis)}"/>', '<axis xyz="1 0 0"/>')
+        return out
+
+    monkeypatch.setattr(val, "to_urdf", broken)
+    r = validate(cabinet.model, cabinet.tracks, cabinet.segmentation.labels)
+    assert not r.passed and any("URDF and MJCF disagree" in e for e in r.errors)

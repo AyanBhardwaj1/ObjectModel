@@ -34,7 +34,7 @@ vision-language critic to say it looks right. ObjectModel splits the job the oth
 | Joint type, axis, pivot, limits | LLM/VLM guesses | **Measured** in closed form from tracked motion (screw-axis fitting, Kabsch, BIC model selection) |
 | Number of parts / structure | usually 1 joint, 2 parts | **Any tree**: serial chains (lamp), branches (cabinet with door + drawer) |
 | Trust | none, or "critic says OK" | **Per-joint confidence** (type posterior) and **uncertainty** (axis ±°, pivot ±mm via bootstrap) |
-| Validation | visual check | **MuJoCo-in-the-loop**: compiles the exported MJCF, drives it with the measured joint states, compares every simulated surface point with the observations, and separates model error from measurement noise |
+| Validation | visual check | **MuJoCo-in-the-loop**: compiles both exported files (URDF and MJCF must agree), drives it with the measured joint states, compares every simulated surface point with the observations, and separates model error from measurement noise |
 | Physics | missing / identity inertia | Min-volume boxes, material densities, mass and positive-definite inertia; MJCF in radians with limits |
 | LLM | required | Optional, any OpenAI-compatible endpoint (Llama API, vLLM, Ollama…); output is schema-validated, clamped and sanitised; offline rules otherwise |
 | Evaluation | demo videos | **Built-in benchmark** with ground truth and standard articulation metrics |
@@ -156,13 +156,14 @@ part is static in the observed frame:
 5. **Validation.** The MJCF is compiled by MuJoCo and driven with the measured joint states
    (`mj_kinematics`). Every simulated surface point is compared with its observed track. Static
    checks cover mass, inertia and limits; each joint is swept through its range to catch parts that
-   would collide; a 2 s passive simulation checks stability. A model is
+   would collide; a 2 s passive simulation checks stability; and the URDF is compiled in MuJoCo as
+   well, with its link poses required to match the MJCF at rest, mid-range and both limits. A model is
    **SIM-VALIDATED** only if all of these pass.
 
 ## Development
 
 ```bash
-python -m pytest -q        # 97 tests: math, estimation accuracy, export, validation, agent, video, MCP
+python -m pytest -q        # 100 tests: math, estimation accuracy, export, validation, agent, video, MCP
 ```
 
 The research behind the design is in [`reports/`](reports/) with notes in [`research_notes/`](research_notes/).
