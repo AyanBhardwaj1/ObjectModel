@@ -102,10 +102,10 @@ def rule_annotation(summary: dict) -> Annotation:
             names[i] = "button" if vertical and s[0] < 0.05 else ("slider" if vertical else "drawer")
         elif j["type"] in ("revolute", "continuous"):
             vertical_axis = abs(j["axis"][2]) > 0.8
-            if elongated:
-                names[i] = "lever" if s[0] < 0.12 else ("spout" if vertical_axis else "arm")
-            elif thin:
+            if thin:
                 names[i] = "door" if vertical_axis else "lid"
+            elif elongated:
+                names[i] = "lever" if s[0] < 0.12 else ("spout" if vertical_axis else "arm")
             else:
                 names[i] = "knob" if s[0] < 0.06 else ("lever" if s[0] < 0.15 else "rotating_part")
         else:

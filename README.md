@@ -155,13 +155,14 @@ part is static in the observed frame:
    fill fractions for hollow parts, and box inertia (always satisfies the triangle inequality).
 5. **Validation.** The MJCF is compiled by MuJoCo and driven with the measured joint states
    (`mj_kinematics`). Every simulated surface point is compared with its observed track. Static
-   checks cover mass, inertia and limits; a 2 s passive simulation checks stability. A model is
+   checks cover mass, inertia and limits; each joint is swept through its range to catch parts that
+   would collide; a 2 s passive simulation checks stability. A model is
    **SIM-VALIDATED** only if all of these pass.
 
 ## Development
 
 ```bash
-python -m pytest -q        # 93 tests: math, estimation accuracy, export, validation, agent, video, MCP
+python -m pytest -q        # 97 tests: math, estimation accuracy, export, validation, agent, video, MCP
 ```
 
 The research behind the design is in [`reports/`](reports/) with notes in [`research_notes/`](research_notes/).

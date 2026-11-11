@@ -31,6 +31,7 @@ class ValidationReport:
     noise_mm: float = 0.0  # estimated per-axis track noise
     replay_excess_mm: float | None = None  # replay error not explained by measurement noise
     stable: bool | None = None
+    collisions: list[str] = field(default_factory=list)  # self-collisions found in the joint sweep
     simulator: str = "mujoco"
 
     @property
@@ -90,6 +91,8 @@ def validate(model: ArticulatedModel, ts: TrackSet, labels: np.ndarray, noise_si
         # shows sqrt(2 frames * 3 axes) * sigma of replay error.
         expected = np.sqrt(6.0) * sigma * 1000
         report.replay_excess_mm = round(float(np.sqrt(max(0.0, report.replay_overall_mm ** 2 - expected ** 2))), 3)
+    report.collisions = _sweep_collisions(model, m, mujoco)
+    report.warnings.extend(report.collisions)
     report.stable = _stability(model, m, mujoco)
     if not report.stable:
         report.errors.append("passive simulation diverged")
@@ -148,6 +151,42 @@ def _replay(model, ts, labels, m, d, report, mujoco) -> None:
             out = np.mean((j.states < j.lower - 1e-6) | (j.states > j.upper + 1e-6))
             if out > 0:
                 report.warnings.append(f"joint {j.name}: {out:.0%} of observed states outside limits")
+
+
+SWEEP_STEPS = 9
+PENETRATION_TOL = 0.005  # metres; box approximations of real parts overlap slightly
+
+
+def _sweep_collisions(model, m, mujoco) -> list[str]:
+    """Sweep each joint across its range (others at rest) and report parts that
+    interpenetrate. Parent/child pairs are excluded by MuJoCo; the floor is ignored."""
+    d = mujoco.MjData(m)
+    floor = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "floor")
+    found: dict[tuple[str, str], tuple[str, float]] = {}
+    # MuJoCo does not filter parent/child contacts when the parent is welded to the
+    # world, and a hinge always touches its parent; skip kinematically adjacent pairs.
+    adjacent = {tuple(sorted((jt.parent, jt.child))) for jt in model.joints}
+    for j in model.joints:
+        if j.type not in ("revolute", "prismatic", "continuous"):
+            continue
+        jid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_JOINT, j.name)
+        lo, hi = (j.lower, j.upper) if j.type != "continuous" else (-np.pi, np.pi)
+        for q in np.linspace(lo, hi, SWEEP_STEPS):
+            d.qpos[:] = 0
+            d.qpos[m.jnt_qposadr[jid]] = q
+            mujoco.mj_forward(m, d)
+            for c in d.contact[: d.ncon]:
+                if floor in (c.geom1, c.geom2) or c.dist > -PENETRATION_TOL:
+                    continue
+                a = mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, m.geom_bodyid[c.geom1])
+                b = mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, m.geom_bodyid[c.geom2])
+                key = tuple(sorted((a, b)))
+                if a == b or key in adjacent:
+                    continue
+                if key not in found or c.dist < found[key][1]:
+                    found[key] = (j.name, float(c.dist))
+    return [f"self-collision: {a} and {b} interpenetrate by {-dist * 1000:.0f} mm while sweeping {jn}"
+            for (a, b), (jn, dist) in sorted(found.items())]
 
 
 def _stability(model, m, mujoco) -> bool:

@@ -59,12 +59,13 @@ def test_validator_catches_a_wrong_axis(cabinet):
 def test_validator_reports_invalid_inertia(cabinet):
     link = cabinet.model.links[1]
     phys = link.physics
+    original = phys.inertia_diag.copy()
     try:
         object.__setattr__(phys, "inertia_diag", np.array([1.0, 1.0, 5.0]))
         r = validate(cabinet.model, cabinet.tracks, cabinet.segmentation.labels)
         assert any("inertia" in e for e in r.errors) and not r.passed
     finally:
-        object.__setattr__(phys, "inertia_diag", phys.inertia_diag)
+        object.__setattr__(phys, "inertia_diag", original)
 
 
 def test_write_outputs_creates_all_artifacts(cabinet, tmp_path):
@@ -80,3 +81,21 @@ def test_viewer_escapes_script_breakout():
     html = render_viewer({"name": "x", "notes": ["</script><script>alert(1)</script>"], "links": [], "joints": [], "root": ""})
     assert "</script><script>alert(1)" not in html
     assert html.count("</script>") == 3  # two CDN tags + the inline script
+
+
+def test_joint_sweep_reports_self_collision(cabinet):
+    """Inflate the door so it hits the drawer when swung: the sweep must flag it."""
+    from objectmodel.physics import PartGeometry
+
+    door = next(l for l in cabinet.model.links if l.name == "door")
+    original = door.geometry
+    try:
+        door.geometry = PartGeometry(original.center, original.rotation, original.size * [2.6, 6.0, 1.0])
+        r = validate(cabinet.model, cabinet.tracks, cabinet.segmentation.labels)
+        assert any("self-collision" in c and "door" in c for c in r.collisions)
+    finally:
+        door.geometry = original
+
+
+def test_clean_model_has_no_self_collisions(cabinet):
+    assert cabinet.validation.collisions == []
