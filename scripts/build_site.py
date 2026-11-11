@@ -57,7 +57,7 @@ HEAD = """<!doctype html>
 <body>
 <a class="skip" href="#main">Skip to content</a>"""
 
-NAV = [("playground", "/playground", "Playground", ""), ("gallery", "/gallery", "Gallery", "wide"),
+NAV = [("playground", "/playground", "Playground", ""), ("humanoids", "/humanoids", "Humanoids", ""), ("gallery", "/gallery", "Gallery", "wide"),
        ("docs", "/docs", "Docs", ""), ("benchmark", "/#benchmark", "Benchmark", "wide"), ("github", REPO, "GitHub", "wide")]
 
 
@@ -84,7 +84,7 @@ FOOTER = f"""<footer class="site-footer">
   <div class="wrap">
     <div class="blocks" aria-hidden="true">{"".join(f'<span style="height:{h}%">{c}</span>' for c, h in zip(WORD, HEIGHTS))}</div>
     <div class="foot-grid">
-      <nav aria-label="Product"><b>Product</b><a href="/playground">Playground</a><a href="/gallery">Gallery</a><a href="/#benchmark">Benchmark</a></nav>
+      <nav aria-label="Product"><b>Product</b><a href="/playground">Playground</a><a href="/humanoids">Humanoids</a><a href="/gallery">Gallery</a><a href="/#benchmark">Benchmark</a></nav>
       <nav aria-label="Documentation"><b>Docs</b><a href="/docs#install">Install</a><a href="/docs#rest">REST API</a><a href="/docs#mcp">MCP server</a></nav>
       <nav aria-label="Project"><b>Project</b><a href="{REPO}">Source code</a><a href="{REPO}/blob/main/LICENSE">MIT licence</a><a href="/api/reconstruct">API status</a></nav>
       <div class="reach">
@@ -100,11 +100,11 @@ FOOTER = f"""<footer class="site-footer">
 </body>
 </html>"""
 
-PATHS = {"index": "/", "playground": "/playground", "docs": "/docs", "404": "/404"}
+PATHS = {"index": "/", "playground": "/playground", "docs": "/docs", "404": "/404", "humanoids": "/humanoids"}
 
 
 def build_pages() -> None:
-    for name in ("index", "playground", "docs", "404"):
+    for name in ("index", "playground", "humanoids", "docs", "404"):
         src = open(os.path.join(ROOT, "site", f"{name}.html")).read()
         m = re.match(r"<!--HEAD (.*?)\|(.*?)-->", src)
         title, desc = m.group(1), m.group(2)

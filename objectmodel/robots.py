@@ -22,6 +22,19 @@ MENAGERIE_ENV = "OBJECTMODEL_MENAGERIE"
 DEFAULT_MENAGERIE = os.path.expanduser("~/.cache/objectmodel/mujoco_menagerie")
 
 
+STUDIO = """<visual><global offwidth="1280" offheight="720"/><quality shadowsize="2048"/>
+    <headlight ambient="0.42 0.42 0.40" diffuse="0.55 0.55 0.52" specular="0.1 0.1 0.1"/></visual>
+  <asset><texture name="sky" type="skybox" builtin="gradient" rgb1="0.93 0.92 0.90" rgb2="0.80 0.79 0.75" width="256" height="256"/>
+    <texture name="tiles" type="2d" builtin="checker" rgb1="0.86 0.85 0.81" rgb2="0.80 0.79 0.75" width="512" height="512"/>
+    <material name="studio_floor" texture="tiles" texrepeat="8 8" reflectance="0.08"/></asset>"""
+
+
+def _studio_floor(xml: str) -> str:
+    return xml.replace('<geom name="floor" type="plane" size="2 2 0.1" rgba="0.9 0.9 0.9 1" pos="0 0 -0.001"/>',
+                       '<geom name="floor" type="plane" size="6 6 0.1" material="studio_floor" pos="0 0 -0.001"/>'
+                       '<light pos="1.5 -2 3.5" dir="-0.4 0.5 -1" diffuse="0.5 0.5 0.48" castshadow="true"/>')
+
+
 @dataclass(frozen=True)
 class Placement:
     base: np.ndarray
@@ -36,6 +49,7 @@ class Robot:
     shoulder_height = 0.42  # base frame to shoulder
     shoulder_z = 0.0  # fixed shoulder height for robots that cannot adjust it
     comfort_reach = 0.45
+    body_clearance = 0.15  # closest the shoulder may stand to the handle, horizontally
 
     def ik_joints(self, side: str) -> list[str]:
         raise NotImplementedError
@@ -83,10 +97,8 @@ class GenericHumanoid(Robot):
 
     def compose(self, world_mjcf: str, base: np.ndarray, yaw: float, child: str, side: str) -> str:
         from .humanoid import actuators_xml, robot_xml
-        xml = world_mjcf.replace(
-            '<compiler angle="radian" autolimits="true"/>',
-            '<compiler angle="radian" autolimits="true"/>\n  <visual><global offwidth="1280" offheight="720"/>'
-            '<quality shadowsize="4096"/></visual>')
+        xml = _studio_floor(world_mjcf).replace(
+            '<compiler angle="radian" autolimits="true"/>', '<compiler angle="radian" autolimits="true"/>\n  ' + STUDIO)
         xml = xml.replace("  </worldbody>", robot_xml(base, yaw, base[2]) + "\n  </worldbody>")
         a = self.anchor(side)
         eq = (f'<equality><connect name="grasp" body1="{self.hand_body(side)}" body2="{child}" '
@@ -124,6 +136,7 @@ class ApolloHumanoid(Robot):
     shoulder_height = 1.367 - APOLLO_PELVIS_Z  # pelvis frame to shoulder
     shoulder_z = 1.367
     comfort_reach = 0.52
+    body_clearance = 0.34  # Apollo's chest and arms need room in front of the face
 
     def __init__(self, xml_path: str | None = None):
         self.xml_path = xml_path or menagerie_path()
@@ -166,10 +179,10 @@ class ApolloHumanoid(Robot):
             src = re.sub(rf'(<body name="{s}_wrist_pitch_link"[^>]*>)',
                          rf'\1<site name="{s}_grip" pos="{p[0]} {p[1]} {p[2]}" size="0.012" rgba="0.76 0.57 0.27 1"/>',
                          src, count=1)
-        world = re.search(r"<worldbody>(.*?)</worldbody>", world_mjcf, flags=re.S).group(1)
+        world = re.search(r"<worldbody>(.*?)</worldbody>", _studio_floor(world_mjcf), flags=re.S).group(1)
         src = src.replace("</worldbody>", world + "\n  </worldbody>", 1)
         a = self.anchor(side)
-        extra = ('<visual><global offwidth="1280" offheight="720"/><quality shadowsize="4096"/></visual>'
+        extra = (STUDIO +
                  f'<equality><connect name="grasp" body1="{self.hand_body(side)}" body2="{child}" '
                  f'anchor="{a[0]} {a[1]} {a[2]}" active="false"/></equality>')
         return src.replace("</mujoco>", extra + "\n</mujoco>")

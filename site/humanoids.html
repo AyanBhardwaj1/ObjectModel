@@ -1,0 +1,106 @@
+<!--HEAD Humanoids · ObjectModel|A humanoid opens doors and drawers planned only from ObjectModel's measured twin, then the simulator checks the real object moved as planned.-->
+<!--HEADER humanoids-->
+<main>
+  <section class="section-tight" aria-labelledby="h-title">
+    <div class="wrap hum-hero">
+      <div class="hum-copy">
+        <h1 id="h-title" class="rise">Plan from the twin. Open the real thing.</h1>
+        <p class="rise" style="--i:1">A humanoid gets only the measured twin: where the handle is, which way the part moves and how far. It plans its stance and reach from that, then opens the object in a separate MuJoCo world built from the object's ground truth. If the twin were wrong, the arm would be fighting the hinge, and the grasp force would show it.</p>
+        <ul class="pivot-list rise" style="--i:2">
+          <li>Measured twin: all 10 doors, drawers and lids open, with no more force than a plan using the true joint.</li>
+          <li>Twin with a 2° axis error: 4 of 10 tasks already fail.</li>
+          <li>Runs on the public Apollo model as well as a generic humanoid.</li>
+        </ul>
+      </div>
+      <figure class="hum-video shutter">
+        <button type="button" class="pause tile-pause" data-pause aria-pressed="false" aria-label="Pause the Apollo fridge clip">Pause</button>
+        <video src="/img/tasks/apollo-fridge-left-door.mp4" poster="/img/tasks/apollo-fridge-left-door.jpg" autoplay muted loop playsinline width="960" height="540" aria-label="The Apollo humanoid model swings a fridge door open with its left hand"></video>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section-tight hum-band" aria-labelledby="acc-title">
+    <div class="wrap hum-acc">
+      <div class="hum-acc-text">
+        <h2 id="acc-title">How accurate is accurate enough?</h2>
+        <p>Every first-level door, drawer and lid on five objects, opened by the generic humanoid. Each row plans from ObjectModel's twin, plus a deliberate axis error. Extra force is the grasp force above what the same task needs when planned with the true joint.</p>
+        <p>ObjectModel's twins land within about 0.2° of the true axis, well below the point where tasks start to fail.</p>
+      </div>
+      <div class="table-wrap stack-table">
+        <table>
+          <caption class="sr-only">Task success and extra grasp force by twin axis error</caption>
+          <thead><tr><th scope="col">Twin used for planning</th><th scope="col" class="n">Tasks that succeed</th><th scope="col" class="n">Median extra force</th><th scope="col" class="n">Worst extra force</th></tr></thead>
+          <tbody>
+            <tr><td data-label="Twin">Measured twin</td><td class="n pass" data-label="Succeed">100%</td><td class="n" data-label="Median extra">0&nbsp;N</td><td class="n" data-label="Worst extra">3&nbsp;N</td></tr>
+            <tr><td data-label="Twin">Twin + 2°</td><td class="n" data-label="Succeed">60%</td><td class="n" data-label="Median extra">16&nbsp;N</td><td class="n" data-label="Worst extra">35&nbsp;N</td></tr>
+            <tr><td data-label="Twin">Twin + 5°</td><td class="n" data-label="Succeed">30%</td><td class="n" data-label="Median extra">56&nbsp;N</td><td class="n" data-label="Worst extra">225&nbsp;N</td></tr>
+            <tr><td data-label="Twin">Twin + 10°</td><td class="n" data-label="Succeed">0%</td><td class="n" data-label="Median extra">116&nbsp;N</td><td class="n" data-label="Worst extra">823&nbsp;N</td></tr>
+            <tr><td data-label="Twin">Twin + 15°</td><td class="n" data-label="Succeed">0%</td><td class="n" data-label="Median extra">175&nbsp;N</td><td class="n" data-label="Worst extra">1070&nbsp;N</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="steps-title">
+    <div class="wrap">
+      <h2 id="steps-title" class="rise" style="max-width:12em;margin-bottom:48px">Find the handle, stand right, follow the joint</h2>
+      <div class="hum-steps">
+        <figure class="rise">
+          <div class="tile"><video src="/img/tasks/generic-kitchen-cabinet-door.mp4" poster="/img/tasks/generic-kitchen-cabinet-door.jpg" muted loop playsinline autoplay width="960" height="540" aria-label="A generic humanoid swings a cabinet door open"></video></div>
+          <figcaption><h3>Swing a door</h3><p>The twin's hinge gives the handle's arc. The robot grid-searches where to stand so the whole arc stays at a comfortable reach and never sweeps through its torso.</p></figcaption>
+        </figure>
+        <figure class="rise" style="--i:1">
+          <div class="tile"><video src="/img/tasks/generic-dresser-drawer1.mp4" poster="/img/tasks/generic-dresser-drawer1.jpg" muted loop playsinline autoplay width="960" height="540" aria-label="A generic humanoid pulls a dresser drawer straight out"></video></div>
+          <figcaption><h3>Pull a drawer</h3><p>For a slide it stands square to the face and pulls along the measured direction: 7&nbsp;mm tracking error, about 20&nbsp;N.</p></figcaption>
+        </figure>
+        <figure class="rise" style="--i:2">
+          <div class="tile"><video src="/img/tasks/apollo-kitchen-cabinet-drawer.mp4" poster="/img/tasks/apollo-kitchen-cabinet-drawer.jpg" muted loop playsinline autoplay width="960" height="540" aria-label="The Apollo humanoid model pulls a cabinet drawer open"></video></div>
+          <figcaption><h3>Use the whole upper body</h3><p>On Apollo the reach uses torso yaw and pitch as well as the 7-DoF arm, through the model's own position actuators.</p></figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-tight" aria-labelledby="run-title">
+    <div class="wrap hum-run">
+      <h2 id="run-title">Run it</h2>
+      <div class="code">
+<pre><code>objectmodel task kitchen_cabinet                 <span class="c"># generic humanoid, door and drawer</span>
+objectmodel task kitchen_cabinet --perturb 10    <span class="c"># the same plan from a twin 10° off</span>
+objectmodel task-bench                           <span class="c"># the accuracy table above</span>
+bash scripts/fetch_menagerie.sh                  <span class="c"># public Apollo model, Apache-2.0</span>
+MUJOCO_GL=egl objectmodel task fridge --robot apollo --video fridge.mp4</code></pre>
+      </div>
+      <p class="small muted">The Apollo model is Google DeepMind's MuJoCo Menagerie <code translate="no">apptronik_apollo</code>, released under Apache-2.0. ObjectModel is an independent project and is not affiliated with or endorsed by Apptronik. Limits: the grasp is a contact constraint rather than finger closure, the pelvis is held at its standing pose, and the robot does not collide with the object during the task.</p>
+    </div>
+  </section>
+</main>
+<style>
+.hum-hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(28px, 4vw, 64px); align-items: center; }
+.hum-copy { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.hum-copy h1 { font-size: var(--t-heading); max-width: 11em; }
+.hum-video { position: relative; margin: 0; background: var(--surface); border-top-right-radius: var(--swing); }
+.hum-video video { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-top-right-radius: var(--swing); }
+.hum-band { background: var(--surface); }
+.hum-acc { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(28px, 4vw, 64px); align-items: start; }
+.hum-acc-text { display: flex; flex-direction: column; gap: 18px; }
+.hum-acc .table-wrap { margin-top: 0; background: var(--bg); }
+.hum-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.hum-steps figure { margin: 0; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.hum-steps .tile { aspect-ratio: 16 / 10; background: var(--surface); }
+.hum-steps figcaption { display: flex; flex-direction: column; gap: 6px; }
+.hum-steps figcaption h3 { font-size: var(--t-statement); }
+.hum-run { display: flex; flex-direction: column; gap: 24px; }
+.hum-run .small { max-width: 80ch; }
+@media (max-width: 900px) { .hum-hero, .hum-acc { grid-template-columns: 1fr; } .hum-steps { grid-template-columns: 1fr; } .hum-video, .hum-video video { border-top-right-radius: 72px; } }
+</style>
+<script>
+document.querySelectorAll('[data-pause]').forEach((b) => {
+  const v = b.parentElement.querySelector('video');
+  const set = (paused) => { if (paused) v.pause(); else v.play().catch(() => { b.textContent = 'Play'; }); b.textContent = paused ? 'Play' : 'Pause'; b.setAttribute('aria-pressed', String(paused)); };
+  b.addEventListener('click', () => set(!v.paused));
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { set(true); document.querySelectorAll('video').forEach((x) => x.pause()); }
+});
+</script>
+<!--FOOTER-->

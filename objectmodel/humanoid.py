@@ -186,7 +186,8 @@ def plan_stance(aff: Affordance, path: np.ndarray, robot=None) -> tuple[str, np.
         side = "r"
     reach = getattr(robot, "comfort_reach", COMFORT_REACH)
     best, best_cost = None, np.inf
-    for fwd in np.linspace(0.15, 0.80, 27):
+    clearance = getattr(robot, "body_clearance", 0.15)
+    for fwd in np.linspace(clearance, 0.85, 27):
         for lat in np.linspace(-0.45, 0.45, 37):
             if aff.kind == "pull" and abs(lat + 0.0) > 0.06:  # pulls stay square to the face
                 continue
@@ -197,6 +198,11 @@ def plan_stance(aff: Affordance, path: np.ndarray, robot=None) -> tuple[str, np.
                 continue
             dist = np.linalg.norm(path - sh, axis=1)
             cost = float(np.max(np.abs(dist - reach)))
+            # the working arm should reach to its own side, not across the torso
+            sgn = 1.0 if side == "r" else -1.0
+            torso = sh + left * getattr(robot, "shoulder_lateral", 0.21) * sgn
+            across = float(np.dot(np.mean(path, axis=0) - torso, left)) * sgn
+            cost += 0.5 * max(0.0, across) + 1e-3 * abs(lat)  # small tie-break toward standing centred
             if cost < best_cost:
                 best, best_cost = sh, cost
     return side, best
@@ -327,10 +333,15 @@ def execute(world_mjcf: str, world_child: str, world_joint: str, world_q: tuple[
     if render:
         renderer = mujoco.Renderer(m, size[1], size[0])
         cam = mujoco.MjvCamera()
-        cam.lookat[:] = 0.5 * aff.handle + 0.5 * np.array([base[0], base[1], aff.handle[2]]) + np.array([0, 0, 0.15])
-        cam.distance = 2.4 if robot.adjustable_height else 2.9
-        cam.azimuth = float(np.degrees(yaw)) + (-38.0 if side == "r" else 38.0)
-        cam.elevation = -20.0
+        cam.lookat[:] = 0.5 * aff.handle + 0.5 * np.array([base[0], base[1], aff.handle[2]]) + np.array([0, 0, 0.1])
+        cam.distance = 2.5 if robot.adjustable_height else 3.1
+        # three-quarter side view from the working arm's side: arm, hand and moving part all visible
+        # stand beside the working arm, a little toward the robot, and look across at the part's face
+        # (MuJoCo's free camera sits opposite its azimuth direction)
+        lateral = -left if side == "r" else left
+        v = lateral * 1.0 + aff.normal * 0.45
+        cam.azimuth = float(np.degrees(np.arctan2(-v[1], -v[0])))
+        cam.elevation = -14.0
     start_site = d.site_xpos[site].copy()
     grasp_point = aff.handle - up
     t, step, next_frame = 0.0, 0, 0.0

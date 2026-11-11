@@ -81,7 +81,7 @@ def work_height_lift(truth: ArticulatedModel, joint: Joint, robot) -> float:
 
 def run_task(object_name: str, seed: int = 0, noise_mm: float = 1.0, perturb_deg: float = 0.0,
              joints: list[str] | None = None, render: bool = False, oracle: bool = True,
-             robot: str = "generic", lift: float | None = None) -> list[TaskCase]:
+             robot: str = "generic", lift: float | None = None, fps: int = 30, size=(960, 540)) -> list[TaskCase]:
     """Open every first-level joint of an object (or the named GT children) with the humanoid."""
     from .geometry import angle_between_axes
     from .robots import get_robot
@@ -107,7 +107,7 @@ def run_task(object_name: str, seed: int = 0, noise_mm: float = 1.0, perturb_deg
         plan = replace(twin, joints=[plan_joint if j.name == tj.name else j for j in twin.joints])
         wq = closed_and_open(truth, gj)
         h = lift if lift is not None else work_height_lift(truth, gj, bot)
-        res = execute(world_xml, gj.child, gj.name, wq, plan, plan_joint, robot=bot, lift=h, render=render)
+        res = execute(world_xml, gj.child, gj.name, wq, plan, plan_joint, robot=bot, lift=h, render=render, fps=fps, size=size)
         ora = execute(world_xml, gj.child, gj.name, wq, truth, gj, robot=bot, lift=h) if oracle else None
         cases.append(TaskCase(object_name, gt_part, res, ora, angle_between_axes(plan_joint.axis, gj.axis)))
     return cases

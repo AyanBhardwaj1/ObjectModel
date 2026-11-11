@@ -100,6 +100,45 @@ def cmd_gallery(args) -> int:
     return 0
 
 
+def cmd_task(args) -> int:
+    from .tasks import run_task
+
+    if args.object not in s.CATALOGUE:
+        print(f"unknown object {args.object!r}; choose from {', '.join(s.CATALOGUE)}", file=sys.stderr)
+        return 2
+    cases = run_task(args.object, seed=args.seed, noise_mm=args.noise, perturb_deg=args.perturb,
+                     joints=args.joint or None, robot=args.robot, render=bool(args.video))
+    if not cases:
+        print("no openable first-level joints found", file=sys.stderr)
+        return 1
+    for c in cases:
+        r = c.result
+        print(f"{c.object}/{c.joint:<12} {r.kind:<5} opened {r.opened_fraction:5.0%}  grasp peak {r.peak_force_n:6.1f} N "
+              f"(oracle {c.oracle.peak_force_n:6.1f} N)  tracking {r.max_track_mm:5.1f} mm  axis error {c.axis_error_deg:4.1f}°  "
+              f"{'OK' if c.success else 'FAIL'}")
+        if args.video:
+            from .media import write_mp4
+            out = args.video if len(cases) == 1 else args.video.replace(".mp4", f"_{c.joint}.mp4")
+            write_mp4(r.frames, out)
+            print(f"  wrote {out}")
+    return 0 if all(c.success for c in cases) else 1
+
+
+def cmd_task_bench(args) -> int:
+    from .task_bench import by_kind_table, summary_table, sweep, to_json
+
+    rows = sweep(errors=tuple(float(e) for e in args.errors), robot=args.robot)
+    text = "## Twin accuracy vs humanoid effort\n\n" + summary_table(rows) + "\n\n" + by_kind_table(rows) + "\n"
+    print(text)
+    if args.out:
+        os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
+        with open(args.out, "w") as f:
+            f.write(text)
+        with open(os.path.splitext(args.out)[0] + ".json", "w") as f:
+            f.write(to_json(rows))
+    return 0
+
+
 def cmd_bench(args) -> int:
     from .benchmark import per_object_table, run_benchmark, summarize_table
 
@@ -151,6 +190,22 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--seed", type=int, default=0)
     g.add_argument("--out", default="out/gallery.html")
     g.set_defaults(fn=cmd_gallery)
+
+    t = sub.add_parser("task", help="have a humanoid open an object's doors/drawers, planned from its measured twin")
+    t.add_argument("object", choices=list(s.CATALOGUE))
+    t.add_argument("--joint", action="append", help="ground-truth part to open (repeatable); default: all")
+    t.add_argument("--robot", default="generic", choices=["generic", "apollo"])
+    t.add_argument("--perturb", type=float, default=0.0, help="add this many degrees of axis error to the twin")
+    t.add_argument("--noise", type=float, default=1.0, help="tracking noise in mm")
+    t.add_argument("--seed", type=int, default=0)
+    t.add_argument("--video", help="write an MP4 of the run (needs MUJOCO_GL=egl or osmesa)")
+    t.set_defaults(fn=cmd_task)
+
+    tb = sub.add_parser("task-bench", help="sweep twin axis error and measure the extra grasp force it causes")
+    tb.add_argument("--errors", nargs="+", default=["0", "2", "5", "10", "15"])
+    tb.add_argument("--robot", default="generic", choices=["generic", "apollo"])
+    tb.add_argument("--out")
+    tb.set_defaults(fn=cmd_task_bench)
 
     b = sub.add_parser("bench", help="run the synthetic benchmark")
     b.add_argument("--noise", nargs="+", default=["1", "3", "6"], help="noise levels in mm")

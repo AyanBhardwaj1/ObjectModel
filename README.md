@@ -160,6 +160,44 @@ part is static in the observed frame:
    well, with its link poses required to match the MJCF at rest, mid-range and both limits. A model is
    **SIM-VALIDATED** only if all of these pass.
 
+## Twin-to-Task: humanoids that open things
+
+The twin is only useful if a robot can act on it. `objectmodel task` gives a humanoid **only the measured
+twin** (handle, motion direction, range) and has it open the object in MuJoCo. The task runs in a
+separate world built from the object's **ground truth**, so a wrong twin shows up as the arm fighting
+the joint, measured as grasp force above an oracle plan that uses the true joint.
+
+```bash
+objectmodel task kitchen_cabinet                  # generic humanoid opens the door and the drawer
+objectmodel task kitchen_cabinet --perturb 10     # same plan from a twin with a 10° axis error
+objectmodel task-bench --out docs/task_bench.md   # sweep twin error across 10 tasks
+bash scripts/fetch_menagerie.sh                   # public Apollo model (Google DeepMind, Apache-2.0)
+MUJOCO_GL=egl objectmodel task fridge --robot apollo --video fridge.mp4
+```
+
+| Twin used for planning | Tasks that succeed | Median extra grasp force | Worst |
+|---|---|---|---|
+| Measured twin | 100% | 0 N | 3 N |
+| + 2° axis error | 60% | 16 N | 35 N |
+| + 5° | 30% | 56 N | 225 N |
+| + 10° | 0% | 116 N | 823 N |
+
+How it works:
+- **Affordance:** handle, pull or swing, closed end, handle path.
+- **Stance:** square to the face for pulls; a grid search over the arc for swings.
+- **Inverse kinematics:** damped least-squares IK on the reference pose, with servos tracking it. On
+  Apollo this covers torso yaw/pitch plus the 7-DoF arm.
+- **Grasp and execution:** a `connect`-constraint grasp at contact, after which the hand follows the
+  twin-predicted path of the point it actually holds.
+
+Limits:
+- No finger closure.
+- The pelvis is held fixed, with no squatting; low furniture sits on a stand for the standing robot.
+- No robot-object contact during the task.
+
+Details and role mapping: [`docs/APPTRONIK.md`](docs/APPTRONIK.md).
+ObjectModel is an independent project, not affiliated with Apptronik.
+
 ## Website and hosted API
 
 The product site lives in `web/` (built from `site/` by `scripts/build_site.py`) with a Python
@@ -180,7 +218,7 @@ honours dark mode and reduced motion.
 ## Development
 
 ```bash
-python -m pytest -q        # 117 tests: math, estimation accuracy, export, validation, agent, video, MCP
+python -m pytest -q        # 126 tests (+1 Apollo test when the model is installed): math, estimation accuracy, export, validation, agent, video, MCP
 ```
 
 The research behind the design is in [`reports/`](reports/) with notes in [`research_notes/`](research_notes/).
