@@ -15,3 +15,10 @@
 | twin + 5° | -0 N (max -0) | -0 N (max +5) |
 | twin + 10° | -0 N (max -0) | +4 N (max +8) |
 | twin + 15° | -2 N (max +2) | +18 N (max +25) |
+
+## +1° (run separately, raw rows in `task_bench_apollo_1deg.json`)
+
+| axis error | feasible tasks | succeed | grasp missed | median extra grasp force | worst extra grasp force | median extra hand deviation |
+|---|---|---|---|---|---|---|
+| twin + 1° | 10 | 100% | 0 | +0 N | +5 N | +0 mm |
+

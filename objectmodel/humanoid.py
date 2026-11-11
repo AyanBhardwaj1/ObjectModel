@@ -258,6 +258,11 @@ def task_plan(model: ArticulatedModel, j: Joint, robot=None, lift: float = 0.0, 
     path, side, shoulder, base, yaw = _plan_body(model, j, aff, robot, up, n=waypoints)
     qs = np.linspace(aff.q_closed, aff.q_open, waypoints)
     r = lambda v: [round(float(x), 5) + 0.0 for x in v]  # + 0.0 turns -0.0 into 0.0
+    pg = model.link(j.parent).geometry
+
+    def box(c, R, size):  # oriented box: centre, axes as columns, full extents
+        return {"center": r(np.asarray(c) + up), "axes": [r(col) for col in np.asarray(R).T], "size": r(size)}
+
     return {
         "schema": PLAN_SCHEMA,
         "robot": robot.name,
@@ -270,6 +275,9 @@ def task_plan(model: ArticulatedModel, j: Joint, robot=None, lift: float = 0.0, 
         "stance": {"arm": "right" if side == "r" else "left", "base_xyz": r(base), "base_yaw": round(yaw, 5),
                    "shoulder_xyz": r(shoulder), "object_lift": round(float(lift), 5)},
         "path": [{"q": round(float(q), 5) + 0.0, "handle": r(p)} for q, p in zip(qs, path)],
+        "geometry": {"parent": box(pg.center, pg.rotation, pg.size),
+                     "part_closed": box(*_child_box(model, j, aff.q_closed)),
+                     "part_open": box(*_child_box(model, j, aff.q_open))},
     }
 
 

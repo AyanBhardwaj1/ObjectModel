@@ -132,6 +132,8 @@ def test_exported_plan_follows_the_twin_joint():
         assert t["schema"] == "objectmodel.task_plan/1"
         assert t["path"][0]["handle"] == pytest.approx(t["handle"], abs=1e-4)
         assert t["path"][0]["q"] == pytest.approx(t["joint"]["q_closed"]) and t["path"][-1]["q"] == pytest.approx(t["joint"]["q_open"])
+        g = t["geometry"]
+        assert {"parent", "part_closed", "part_open"} <= set(g) and len(g["parent"]["axes"]) == 3
     door = tasks["door"]
     axis, origin = np.array(door["joint"]["axis"]), np.array(door["joint"]["origin"])
     pts = np.array([w["handle"] for w in door["path"]])

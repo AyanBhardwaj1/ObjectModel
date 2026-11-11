@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(pytest:*)",
+      "Bash(objectmodel:*)",
+      "Bash(node:*)",
+      "Bash(cmake:*)",
+      "Bash(ffmpeg:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push -u origin claude/nifty-bell-99b82b:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)"
+    ]
+  }
+}

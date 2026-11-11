@@ -34,6 +34,7 @@
           <thead><tr><th scope="col">Twin</th><th scope="col" class="n">Stiff arm</th><th scope="col" class="n">Extra force</th><th scope="col" class="n">Apollo</th><th scope="col" class="n">Extra path</th></tr></thead>
           <tbody>
             <tr><td data-label="Twin">Measured twin</td><td class="n pass" data-label="Stiff arm">100%</td><td class="n" data-label="Extra force">0&nbsp;N</td><td class="n pass" data-label="Apollo">100%</td><td class="n" data-label="Extra path">0&nbsp;mm</td></tr>
+            <tr><td data-label="Twin">Twin + 1°</td><td class="n" data-label="Stiff arm">57%</td><td class="n" data-label="Extra force">9&nbsp;N</td><td class="n pass" data-label="Apollo">100%</td><td class="n" data-label="Extra path">0&nbsp;mm</td></tr>
             <tr><td data-label="Twin">Twin + 2°</td><td class="n" data-label="Stiff arm">0%</td><td class="n" data-label="Extra force">19&nbsp;N</td><td class="n pass" data-label="Apollo">100%</td><td class="n" data-label="Extra path">−1&nbsp;mm</td></tr>
             <tr><td data-label="Twin">Twin + 5°</td><td class="n" data-label="Stiff arm">0%</td><td class="n" data-label="Extra force">50&nbsp;N</td><td class="n pass" data-label="Apollo">100%</td><td class="n" data-label="Extra path">3&nbsp;mm</td></tr>
             <tr><td data-label="Twin">Twin + 10°</td><td class="n" data-label="Stiff arm">0%</td><td class="n" data-label="Extra force">79&nbsp;N</td><td class="n" data-label="Apollo">80%</td><td class="n" data-label="Extra path">21&nbsp;mm</td></tr>
@@ -61,6 +62,23 @@
           <figcaption><h3>Use the whole upper body</h3><p>On Apollo the reach uses torso yaw and pitch as well as the 7-DoF arm, through the model's own position actuators.</p></figcaption>
         </figure>
       </div>
+    </div>
+  </section>
+
+  <section class="section hum-band" aria-labelledby="plan-title">
+    <div class="wrap hum-plan" data-plan-map>
+      <div class="hum-plan-text">
+        <h2 id="plan-title">What the twin hands the robot</h2>
+        <p>Each part gets a plan built from the twin alone: the handle, which way to approach, where to stand, which arm, and the handle's path as the joint opens. <code translate="no">objectmodel plan</code> exports it as JSON, so a teleop, learning or ROS&nbsp;2 stack can use the same plan.</p>
+        <div class="fragment-tabs pm-tabs" role="tablist" aria-label="Part to plan" data-plan-tabs></div>
+        <dl class="pm-readout" data-plan-readout></dl>
+        <p class="small muted">Seen from above, on 10&nbsp;cm squares. Dashed outline: the part closed. The part swings or slides along the twin's own joint, the handle riding on it. Plans for the Apollo model; <a href="/plans/plans.json">all ten as JSON</a>.</p>
+      </div>
+      <figure class="pm-figure">
+        <button type="button" class="pause tile-pause" data-plan-pause aria-pressed="false" aria-label="Pause the plan animation">Pause</button>
+        <svg class="pm-svg" role="img" aria-label="Top-down plan: the object, the handle path along the joint, the approach direction and where the robot stands"></svg>
+      </figure>
+      <pre class="pm-json"><code data-plan-json></code></pre>
     </div>
   </section>
 
@@ -97,9 +115,35 @@ MUJOCO_GL=egl objectmodel task fridge --robot apollo --video fridge.mp4</code></
 .hum-steps .tile { aspect-ratio: 16 / 10; background: var(--surface); }
 .hum-steps figcaption { display: flex; flex-direction: column; gap: 6px; }
 .hum-steps figcaption h3 { font-size: var(--t-statement); }
+.hum-plan { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 32px clamp(28px, 4vw, 64px); align-items: start; }
+.hum-plan-text { display: flex; flex-direction: column; gap: 20px; }
+.hum-plan-text > p { max-width: 58ch; }
+.pm-tabs { gap: 2px; }
+.pm-readout { display: grid; grid-template-columns: max-content 1fr; gap: 6px 20px; margin: 0; font-size: var(--t-small); }
+.pm-readout dt { color: var(--muted); }
+.pm-readout dd { margin: 0; font-variant-numeric: tabular-nums; }
+.pm-figure { position: relative; margin: 0; background: var(--bg); border-top-right-radius: var(--swing-img); overflow: hidden; }
+.pm-figure .tile-pause { position: absolute; top: 12px; left: 12px; z-index: 1; }
+.pm-svg { display: block; width: 100%; height: auto; aspect-ratio: 1; }
+.pm-grid line { stroke: var(--line); }
+.pm-body { fill: var(--sunken); }
+.pm-closed { fill: none; stroke: var(--muted); }
+.pm-part { fill: color-mix(in srgb, var(--accent) 22%, transparent); stroke: var(--accent); stroke-linejoin: round; }
+.pm-path { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; }
+.pm-way { fill: var(--accent); }
+.pm-hinge { fill: var(--bg); stroke: var(--ink); }
+.pm-approach { stroke: var(--ink); }
+.pm-robot ellipse { fill: var(--surface); stroke: var(--muted); stroke-width: .006; }
+.pm-head { fill: var(--sunken); }
+.pm-face { fill: var(--muted); }
+.pm-reach { stroke: var(--muted); }
+.pm-shoulder { fill: var(--ink); }
+.pm-handle { fill: var(--ink); stroke: var(--bg); stroke-width: .006; }
+.pm-label { fill: var(--muted); font-family: var(--font-body); }
+.pm-json { grid-column: 1 / -1; margin: 0; background: var(--code-bg); color: var(--code-ink); padding: 18px 20px; font-size: 13px; line-height: 1.5; overflow-x: auto; max-height: 360px; }
 .hum-run { display: flex; flex-direction: column; gap: 24px; }
 .hum-run .small { max-width: 65ch; }
-@media (max-width: 900px) { .hum-title { font-size: 10vw; } .hum-hero, .hum-acc { grid-template-columns: 1fr; } .hum-steps { grid-template-columns: 1fr; } .hum-video, .hum-video video { border-top-right-radius: 72px; } }
+@media (max-width: 900px) { .hum-title { font-size: 10vw; } .hum-hero, .hum-acc, .hum-plan { grid-template-columns: 1fr; } .hum-steps { grid-template-columns: 1fr; } .hum-video, .hum-video video { border-top-right-radius: 72px; } }
 </style>
 <script>
 document.querySelectorAll('[data-pause]').forEach((b) => {
@@ -109,4 +153,5 @@ document.querySelectorAll('[data-pause]').forEach((b) => {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) { set(true); document.querySelectorAll('video').forEach((x) => x.pause()); }
 });
 </script>
+<script src="/assets/plan-map.js" defer></script>
 <!--FOOTER-->

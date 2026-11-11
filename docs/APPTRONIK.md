@@ -77,6 +77,7 @@ Its joints are compliant, so a wrong twin shows up as hand-path deviation rather
 | Twin used for planning | Tasks that succeed | Grasp missed | Median extra hand deviation | Worst extra grasp force |
 |---|---|---|---|---|
 | ObjectModel's measured twin | **100%** | 0 | +0 mm | +6 N |
+| Twin + 1° | 100% | 0 | +0 mm | +5 N |
 | Twin + 2° | 100% | 0 | −1 mm | +2 N |
 | Twin + 5° | 100% | 0 | +3 mm | +5 N |
 | Twin + 10° | 80% | 2 | +21 mm | +8 N |
