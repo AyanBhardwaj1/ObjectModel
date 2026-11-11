@@ -178,7 +178,8 @@ MUJOCO_GL=egl objectmodel task fridge --robot apollo --video fridge.mp4
 | Twin used for planning (generic arm, 7 feasible tasks) | Succeed | Median extra grasp force | Grasp missed |
 |---|---|---|---|
 | Measured twin | 100% | +0 N | 0 |
-| + 2° axis error | 0% | +19 N | 0 |
+| + 1° axis error | 57% | +9 N | 0 |
+| + 2° | 0% | +19 N | 0 |
 | + 5° | 0% | +50 N | 0 |
 | + 10° | 0% | +79 N | 5 |
 

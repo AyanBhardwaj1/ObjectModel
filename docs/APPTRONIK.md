@@ -14,6 +14,15 @@ the public Apollo model or a generic upper body, and has it open the object in M
 *planned only from the twin* and *executed against the object's ground truth*, so the simulator scores
 whether the twin was good enough to act on, not just good enough to look at.
 
+## If you have five minutes
+
+1. Watch the clip at the top of the Humanoids page (`web/humanoids.html`, or `python scripts/dev_server.py 8000`
+   and open `/humanoids`): Apollo plans from a measured twin and swings a fridge door open.
+2. Read the results tables below: they show how accurate a twin must be before a robot can act on it.
+3. Run `objectmodel task kitchen_cabinet --perturb 5` and compare with the run without `--perturb`. Same
+   robot and same object, only the twin differs.
+4. Skim `objectmodel/humanoid.py` (planning and control) and `cpp/twin_core.cpp` (the C++ core).
+
 ## What the robot does
 
 1. **Affordance from the twin.** Find the handle on the moving part, which way it moves (pull or swing),
@@ -57,7 +66,7 @@ On a stiff arm even a 2° axis error makes the arm fight the joint. At 10° the 
 drawer handles off the drawer fronts, so the hand misses.
 
 ObjectModel's twins land within about 0.2° of the true axis at 1 mm tracking noise (see the main
-README benchmark), so they sit below the ~2° point where the stiff arm starts to fail.
+README benchmark), so they sit inside the ~1° point where the stiff arm starts to fail.
 
 On the public Apollo model (`objectmodel task-bench --robot apollo`), all 10 tasks are feasible.
 Its joints are compliant, so a wrong twin shows up as hand-path deviation rather than force:
@@ -70,6 +79,9 @@ Its joints are compliant, so a wrong twin shows up as hand-path deviation rather
 | Twin + 10° | 80% | 2 | +21 mm | +8 N |
 | Twin + 15° | 60% | 2 | +41 mm | +25 N |
 
+A finer sweep on the stiff arm (`docs/task_bench.md`) puts the threshold near 1°: every degree of axis
+error costs about 9 N of extra grasp force, all 7 tasks pass at +0.5°, 4 of 7 at +1° and 1 of 7 at +1.5°.
+
 Takeaway: how accurate a twin must be depends on the controller. A stiff arm needs it within ~1°; a
 compliant one tolerates ~5° but pays in path error, which matters near obstacles. Force alone is not a
 complete twin-quality metric, so the bench reports both.
@@ -81,7 +93,7 @@ which are currently open):
 
 | Team / role (as posted) | What they ask for | Where it shows up here |
 |---|---|---|
-| **Developer Experience SWE intern** | C++/Python/TS, Git, Linux, experience with AI coding agents, tools that help engineers deploy and test | One-command CLI (`objectmodel task`, `bench`, `task-bench`), an MCP server so agents can call the pipeline, a hosted REST API and playground, CI on every push, 125+ tests, a dev server that mirrors production |
+| **Developer Experience SWE intern** | C++/Python/TS, Git, Linux, experience with AI coding agents, tools that help engineers deploy and test | One-command CLI (`objectmodel task`, `bench`, `task-bench`), an MCP server so agents can call the pipeline, a hosted REST API and playground, CI on every push, 135 tests, a dev server that mirrors production |
 | **Robotics SWE intern, real-time controls** | C++, coordinate frames, linear algebra, physics, actuators | A C++17/Eigen core (`cpp/twin_core.cpp`) for Kabsch, joint fitting and the DLS IK step. It matches NumPy to ~1e-16, fits revolute joints ~30× faster than the vectorised NumPy path (benchmarking it also exposed a full-matrix SVD that made the NumPy path 16× slower than needed; fixed), and takes 0.16 µs per IK step. Also: quaternion and RPY conventions checked URDF-vs-MJCF to 0.00 mm, and servo tracking under constraint load |
 | **Motion control and planning** | MuJoCo/Isaac/Drake, whole-body control | Upper-body IK across torso and arm on the Apollo model, stance planning against the predicted handle arc, constraint-force metrics |
 | **Simulation, core platform, sim-to-real** | MuJoCo or Isaac Lab, CI, "accurate enough for controls validation", system ID | Simulator-in-the-loop validation of every twin (compile, replay, collision sweep, stability), estimating joint parameters from motion (a system-ID cousin), noise and camera-motion sweeps, a reproducible benchmark harness |
