@@ -99,6 +99,39 @@ def tool_reconstruct_video(args: dict) -> str:
     return _result_text(res, write_outputs(res, safe_path(args.get("out_dir", "out/video"))))
 
 
+def _task_args(args: dict) -> tuple[str, str]:
+    name, robot = args.get("object"), args.get("robot", "generic")
+    if name not in s.CATALOGUE:
+        raise ToolError(f"object must be one of {sorted(s.CATALOGUE)}")
+    if robot not in ("generic", "apollo"):
+        raise ToolError("robot must be 'generic' or 'apollo'")
+    if robot == "apollo":
+        from .robots import menagerie_path
+        if menagerie_path() is None:
+            raise ToolError("the Apollo model is not installed; run scripts/fetch_menagerie.sh")
+    return name, robot
+
+
+def tool_plan_task(args: dict) -> str:
+    from .tasks import plan_tasks
+
+    name, robot = _task_args(args)
+    return json.dumps(plan_tasks(name, robot=robot, seed=int(args.get("seed", 0))), indent=1)
+
+
+def tool_run_task(args: dict) -> str:
+    from .tasks import run_task
+
+    name, robot = _task_args(args)
+    perturb = float(args.get("perturb_deg", 0.0))
+    if not 0 <= perturb <= 45:
+        raise ToolError("perturb_deg must be within [0, 45]")
+    cases = run_task(name, robot=robot, perturb_deg=perturb, seed=int(args.get("seed", 0)))
+    return json.dumps([{"part": c.joint, **c.result.summary(), "oracle_peak_force_n": round(c.oracle.peak_force_n, 1),
+                        "excess_peak_n": round(c.excess_peak_n, 1), "axis_error_deg": round(c.axis_error_deg, 2),
+                        "feasible": c.feasible, "success": c.success} for c in cases], indent=1)
+
+
 TOOLS: dict[str, tuple[Any, str, dict]] = {
     "list_demo_objects": (tool_list_demo_objects, "List built-in procedural articulated objects.",
                           {"type": "object", "properties": {}}),
@@ -114,6 +147,21 @@ TOOLS: dict[str, tuple[Any, str, dict]] = {
                            {"type": "object", "required": ["tracks_path"], "properties": {
                                "tracks_path": {"type": "string"}, "hint": {"type": "string"},
                                "use_llm": {"type": "boolean"}, "out_dir": {"type": "string"}}}),
+    "plan_task": (tool_plan_task,
+                  "Reconstruct a built-in object's twin and return the humanoid plan for each door, drawer and lid "
+                  "(handle, approach, joint limits, stance, arm, handle path) as JSON.",
+                  {"type": "object", "required": ["object"], "properties": {
+                      "object": {"type": "string", "enum": sorted(s.CATALOGUE)},
+                      "robot": {"type": "string", "enum": ["generic", "apollo"]}, "seed": {"type": "integer"}}}),
+    "run_task": (tool_run_task,
+                 "Have a humanoid open each door, drawer and lid of a built-in object, planned from its twin and "
+                 "scored in the ground truth against the same task planned with the true joint.",
+                 {"type": "object", "required": ["object"], "properties": {
+                     "object": {"type": "string", "enum": sorted(s.CATALOGUE)},
+                     "robot": {"type": "string", "enum": ["generic", "apollo"]},
+                     "perturb_deg": {"type": "number", "minimum": 0, "maximum": 45,
+                                     "description": "deliberate axis error added to the twin"},
+                     "seed": {"type": "integer"}}}),
     "reconstruct_video": (tool_reconstruct_video,
                           "Reconstruct from a video file (optional depth .npy for metric 3D).",
                           {"type": "object", "required": ["video_path"], "properties": {

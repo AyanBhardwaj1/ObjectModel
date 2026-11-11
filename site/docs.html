@@ -79,7 +79,7 @@ curl -X POST '{{SITE}}/api/reconstruct?hint=laptop' --data-binary @tracks.npz</p
 <pre>{"mcpServers": {"objectmodel": {
   "command": "python", "args": ["-m", "objectmodel.mcp_server"],
   "env": {"OBJECTMODEL_ROOT": "/path/to/workdir"}}}}</pre>
-    <p>Tools: <code>list_demo_objects</code>, <code>reconstruct_demo</code>, <code>reconstruct_tracks</code>, <code>reconstruct_video</code>. Every path is resolved inside <code>OBJECTMODEL_ROOT</code>; anything outside is refused.</p>
+    <p>Tools: <code>list_demo_objects</code>, <code>reconstruct_demo</code>, <code>reconstruct_tracks</code>, <code>reconstruct_video</code>, <code>plan_task</code> (the humanoid plan as JSON) and <code>run_task</code> (plan, execute in MuJoCo and score). Every path is resolved inside <code>OBJECTMODEL_ROOT</code>; anything outside is refused.</p>
 
     <h2 id="llm">LLM naming (optional)</h2>
 <pre>export OBJECTMODEL_LLM_BASE_URL=https://api.llama.com/compat/v1

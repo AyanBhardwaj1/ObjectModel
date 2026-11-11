@@ -91,7 +91,7 @@ report says so. `--no-llm` forces offline mode.
                                  "env": {"OBJECTMODEL_ROOT": "/path/to/workdir"}}}}
 ```
 
-Tools: `list_demo_objects`, `reconstruct_demo`, `reconstruct_tracks`, `reconstruct_video`. File paths are
+Tools: `list_demo_objects`, `reconstruct_demo`, `reconstruct_tracks`, `reconstruct_video`, `plan_task` (the humanoid plan as JSON), `run_task` (plan, execute in MuJoCo and score). File paths are
 confined to `OBJECTMODEL_ROOT`.
 
 ## Benchmark
@@ -242,7 +242,7 @@ honours dark mode and reduced motion.
 ## Development
 
 ```bash
-python -m pytest -q        # 138 tests (the Apollo test needs the model, the 6 C++ parity tests need the built core): math, estimation accuracy, export, validation, agent, video, MCP
+python -m pytest -q        # 142 tests (the Apollo test needs the model, the 6 C++ parity tests need the built core): math, estimation accuracy, export, validation, agent, video, MCP
 ```
 
 The research behind the design is in [`reports/`](reports/) with notes in [`research_notes/`](research_notes/).

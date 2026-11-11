@@ -49,3 +49,21 @@ def test_serve_loop_handles_garbage_line():
     srv.serve(io.StringIO('not json\n{"jsonrpc":"2.0","id":5,"method":"ping"}\n'), out)
     lines = [json.loads(l) for l in out.getvalue().splitlines()]
     assert lines[0]["error"]["code"] == -32700 and lines[1]["result"] == {}
+
+
+def test_agent_can_plan_and_run_a_humanoid_task():
+    plan = call("plan_task", {"object": "drawer_cabinet"})["result"]
+    assert plan["isError"] is False
+    assert json.loads(plan["content"][0]["text"])["tasks"][0]["schema"] == "objectmodel.task_plan/1"
+    run = call("run_task", {"object": "drawer_cabinet"})["result"]
+    assert run["isError"] is False
+    rows = json.loads(run["content"][0]["text"])
+    assert rows and all(r["success"] for r in rows)
+
+
+@pytest.mark.parametrize("args, msg", [({"object": "spaceship"}, "object must be"),
+                                       ({"object": "laptop", "robot": "bender"}, "robot must be"),
+                                       ({"object": "laptop", "perturb_deg": 90}, "perturb_deg")])
+def test_task_tools_validate_arguments(args, msg):
+    out = call("run_task", args)["result"]
+    assert out["isError"] and msg in out["content"][0]["text"]
