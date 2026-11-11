@@ -23,9 +23,16 @@ CTRL_HZ = 100
 SIM_DT = 0.002
 STANDOFF = 0.52  # metres between handle and torso, horizontally
 SHOULDER_ABOVE_HANDLE = 0.28
-ARM_KP = 900  # position-servo stiffness, N·m/rad
+# position-servo stiffness per joint, N·m/rad: strong shoulder and elbow, compliant wrist (as on real arms)
+ARM_KP = {"sh_pitch": 900, "sh_roll": 900, "sh_yaw": 700, "elbow": 800, "wr_yaw": 250, "wr_pitch": 250, "wr_roll": 200}
+GRASP_TOL = 0.03  # the hand must be this close to the real part's surface to close on it
+REACH_I_MAX = 0.10  # metres; cap on the integral correction
+GRASP_COMPLIANCE = 1.0  # post-grasp servo stiffness scale. Softer arms (0.3 was tried) hide twin errors:
+# a 5° slide error then passes, so the study keeps the arm stiff and lets the force reveal the error
 COMFORT_REACH = 0.45  # metres from shoulder to grip: elbow bent, well inside the 0.66 m arm
-SAFE_FORCE_N = 40.0  # peak grasp force above this counts as fighting the joint
+FEASIBLE_FORCE_N = 120.0  # a task is feasible for a robot if, planned with the TRUE joint, it opens the part
+# with a peak grasp force at or below this (a moderate pull for a humanoid arm on furniture)
+FORCE_MARGIN_N = 10.0  # a twin plan succeeds if it needs at most this much more peak force than the true joint
 OPEN_FRACTION = 0.85  # of the observed range
 
 PHASES = (("reach", 1.6), ("approach", 1.0), ("open", 4.0), ("hold", 0.6))
@@ -92,7 +99,7 @@ def actuators_xml() -> str:
     rows = []
     for side in ("r", "l"):
         for n, *_ in ARM_JOINTS:
-            rows.append(f'<position name="a_{side}_{n}" joint="{side}_{n}" kp="{ARM_KP}" forcerange="-160 160"/>')
+            rows.append(f'<position name="a_{side}_{n}" joint="{side}_{n}" kp="{ARM_KP[n]}" forcerange="-160 160"/>')
     return "<actuator>" + "".join(rows) + "</actuator>"
 
 
@@ -147,6 +154,7 @@ def affordance(model: ArticulatedModel, j: Joint) -> Affordance:
         handle = c + pull * (half(pull) + 0.012)
         normal = pull
         kind = "pull"
+        edge = np.zeros(3)
     else:
         u = j.axis / np.linalg.norm(j.axis)
         r = c - j.origin
@@ -159,7 +167,12 @@ def affordance(model: ArticulatedModel, j: Joint) -> Affordance:
         edge = e.copy()
     n = normal.copy()
     n[2] = 0.0
-    n = n / max(np.linalg.norm(n), 1e-9)
+    if np.linalg.norm(n) < 0.3 and kind == "swing":  # a lid lying flat: approach from its free edge
+        n = edge.copy()
+        n[2] = 0.0
+    if np.linalg.norm(n) < 1e-6:
+        raise ValueError(f"joint {j.name}: cannot find a horizontal approach direction for this face")
+    n = n / np.linalg.norm(n)
     aff = Affordance(j.name, j.child, kind, handle, n, qc, qo)
     if kind == "swing":
         eh = edge - np.dot(edge, [0, 0, 1]) * np.array([0, 0, 1.0])
@@ -181,7 +194,7 @@ def plan_stance(aff: Affordance, path: np.ndarray, robot=None) -> tuple[str, np.
     fixed_z = robot is not None and not robot.adjustable_height
     z = robot.shoulder_z if fixed_z else float(np.mean(path[:, 2])) + SHOULDER_ABOVE_HANDLE
     if aff.kind == "pull" and not fixed_z:
-        return "r", aff.handle + aff.normal * STANDOFF + np.array([0, 0, SHOULDER_ABOVE_HANDLE])
+        return "r", path[0] + aff.normal * STANDOFF + np.array([0, 0, SHOULDER_ABOVE_HANDLE])
     if aff.kind == "pull":
         side = "r"
     reach = getattr(robot, "comfort_reach", COMFORT_REACH)
@@ -205,6 +218,8 @@ def plan_stance(aff: Affordance, path: np.ndarray, robot=None) -> tuple[str, np.
             cost += 0.5 * max(0.0, across) + 1e-3 * abs(lat)  # small tie-break toward standing centred
             if cost < best_cost:
                 best, best_cost = sh, cost
+    if best is None:
+        raise ValueError("no feasible stance: every candidate puts the handle path through the torso")
     return side, best
 
 
@@ -224,11 +239,21 @@ class TaskResult:
     peak_force_n: float
     mean_force_n: float
     max_track_mm: float
-    success: bool
+    success: bool  # see judge(): grasped, opened >= 90 %, peak force <= FEASIBLE_FORCE_N
+    grasped: bool = True
+    grasp_gap_mm: float = 0.0  # hand-to-part distance when the hand tried to close
     frames: list = field(default_factory=list, repr=False)
+    log: dict = field(default_factory=dict, repr=False)  # per-control-step demonstration data
 
     def summary(self) -> dict:
-        return {k: (round(v, 3) if isinstance(v, float) else v) for k, v in self.__dict__.items() if k != "frames"}
+        return {k: (round(v, 3) if isinstance(v, float) else v) for k, v in self.__dict__.items() if k not in ("frames", "log")}
+
+    def save_demo(self, path: str, **meta) -> None:
+        """Write the run as a demonstration (one row per control step) for teleop/learning pipelines."""
+        if not self.log:
+            raise ValueError("no demonstration log recorded; run with log=True")
+        np.savez_compressed(path, **{k: np.asarray(v) for k, v in self.log.items()},
+                            meta=np.array(str({**meta, **self.summary()})))
 
 
 def _ik_step(mujoco, m, ik, d, q_ref, arm, arm_q, arm_v, site, target, default, iters: int = 3, lam: float = 0.03):
@@ -251,6 +276,34 @@ def _ik_step(mujoco, m, ik, d, q_ref, arm, arm_q, arm_v, site, target, default, 
     return q_ref
 
 
+def judge(r: "TaskResult", oracle: "TaskResult | None" = None) -> bool:
+    """The one success rule.
+
+    Without an oracle (is the task doable at all?): the hand really grasped the part, the part opened
+    at least 90 %, and the peak grasp force stayed at or below FEASIBLE_FORCE_N.
+    With an oracle (did the twin cost anything?): additionally the twin plan needed at most
+    FORCE_MARGIN_N more peak force than the same task planned with the true joint.
+    """
+    ok = bool(r.grasped and r.opened_fraction >= 0.9 and r.peak_force_n <= FEASIBLE_FORCE_N)
+    if oracle is not None:
+        ok = ok and r.peak_force_n <= oracle.peak_force_n + FORCE_MARGIN_N
+    return ok
+
+
+def _distance_to_body(mujoco, m, d, body: int, p: np.ndarray) -> float:
+    """Distance from point p to the nearest box geom of `body` (0 inside)."""
+    best = np.inf
+    for g in range(m.ngeom):
+        if m.geom_bodyid[g] != body or m.geom_type[g] != mujoco.mjtGeom.mjGEOM_BOX:
+            continue
+        R = d.geom_xmat[g].reshape(3, 3)
+        local = R.T @ (p - d.geom_xpos[g])
+        half = m.geom_size[g]
+        outside = np.maximum(np.abs(local) - half, 0.0)
+        best = min(best, float(np.linalg.norm(outside)))
+    return best
+
+
 def _smooth(s: float) -> float:
     s = min(max(s, 0.0), 1.0)
     return s * s * (3 - 2 * s)
@@ -258,7 +311,8 @@ def _smooth(s: float) -> float:
 
 def execute(world_mjcf: str, world_child: str, world_joint: str, world_q: tuple[float, float],
             twin: ArticulatedModel, twin_joint: Joint, robot=None, lift: float = 0.0,
-            render: bool = False, fps: int = 30, size=(960, 540)) -> TaskResult:
+            render: bool = False, fps: int = 30, size=(960, 540), log: bool = False,
+            handle_shift: np.ndarray | None = None) -> TaskResult:
     """Plan with the twin, act in the world.
 
     world_q is (closed, open) for the world's own joint, which may use the opposite sign convention
@@ -274,8 +328,10 @@ def execute(world_mjcf: str, world_child: str, world_joint: str, world_q: tuple[
     robot = robot or GenericHumanoid()
     up = np.array([0.0, 0.0, lift])
     aff = affordance(twin, twin_joint)
-    aff.handle = aff.handle + up
-    path = np.array([handle_path(twin, twin_joint, aff, aff.q_closed + f * (aff.q_open - aff.q_closed)) for f in np.linspace(0, 1, 9)])
+    if handle_shift is not None:  # study handle-localisation error: the twin believes the handle is elsewhere
+        aff.handle = aff.handle + np.asarray(handle_shift, float)
+    handle_w = aff.handle + up  # world-space handle (the object may sit on a stand)
+    path = np.array([handle_path(twin, twin_joint, aff, aff.q_closed + f * (aff.q_open - aff.q_closed)) for f in np.linspace(0, 1, 9)]) + up
     side, shoulder = plan_stance(aff, path, robot)
     left = np.cross([0, 0, 1], -aff.normal)
     sgn = 1.0 if side == "r" else -1.0
@@ -298,6 +354,17 @@ def execute(world_mjcf: str, world_child: str, world_joint: str, world_q: tuple[
     xml = robot.compose(world, base, yaw, world_child, side)
     m = mujoco.MjModel.from_xml_string(xml)
     m.opt.timestep = SIM_DT
+    # gravity-compensation feedforward on the robot's own bodies, as a real arm controller provides
+    # (without it, compliant position servos sag several centimetres off the IK reference)
+    root = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, robot.root_body)
+    if root < 0:
+        raise ValueError(f"robot root body {robot.root_body!r} not found in the scene")
+    for b in range(m.nbody):
+        a = b
+        while a > 0 and a != root:
+            a = m.body_parentid[a]
+        if a == root:
+            m.body_gravcomp[b] = 1.0
     d = mujoco.MjData(m)
     jid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_JOINT, world_joint)
     qadr = m.jnt_qposadr[jid]
@@ -321,19 +388,26 @@ def execute(world_mjcf: str, world_child: str, world_joint: str, world_q: tuple[
     child = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, world_child)
     eq = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_EQUALITY, "grasp")
     anchor = np.array(robot.anchor(side))
+    missing = [n for n, i in [("world joint " + world_joint, jid), ("grip site", site), ("part " + world_child, child),
+                              ("grasp constraint", eq)] + [(f"joint {n}", a) for n, a in zip(names, arm)]
+               + [(f"actuator for {n}", a) for n, a in zip(names, arm_acts)] if i < 0]
+    if missing:
+        raise ValueError("scene is missing: " + ", ".join(missing))
     q_ref = d.qpos[arm_q].copy()
     ik = mujoco.MjData(m)  # kinematic copy: IK runs on the reference pose, the servos track it
 
-    pre = aff.handle + aff.normal * 0.12
+    pre = handle_w + aff.normal * 0.12
     ends = np.cumsum([dur for _, dur in PHASES])
     total = float(ends[-1])
     steps_per_ctrl = int(round(1.0 / (CTRL_HZ * SIM_DT)))
     forces, tracks, frames = [], [], []
+    rec = {k: [] for k in ("t", "phase", "q_ref", "q", "hand", "target", "object_q", "grasp_force")} if log else None
+    phase_names = [p for p, _ in PHASES]
     renderer = None
     if render:
         renderer = mujoco.Renderer(m, size[1], size[0])
         cam = mujoco.MjvCamera()
-        cam.lookat[:] = 0.5 * aff.handle + 0.5 * np.array([base[0], base[1], aff.handle[2]]) + np.array([0, 0, 0.1])
+        cam.lookat[:] = 0.5 * handle_w + 0.5 * np.array([base[0], base[1], handle_w[2]]) + np.array([0, 0, 0.1])
         cam.distance = 2.5 if robot.adjustable_height else 3.1
         # three-quarter side view from the working arm's side: arm, hand and moving part all visible
         # stand beside the working arm, a little toward the robot, and look across at the part's face
@@ -343,29 +417,54 @@ def execute(world_mjcf: str, world_child: str, world_joint: str, world_q: tuple[
         cam.azimuth = float(np.degrees(np.arctan2(-v[1], -v[0])))
         cam.elevation = -14.0
     start_site = d.site_xpos[site].copy()
-    grasp_point = aff.handle - up
+    grasp_point = aff.handle.copy()
+    grasped, grasp_gap = False, float("inf")
+    i_corr = np.zeros(3)  # integral correction: joint friction leaves position servos short of the reference
     t, step, next_frame = 0.0, 0, 0.0
     while t < total:
         if step % steps_per_ctrl == 0:
             if t < ends[0]:
                 target = start_site + (pre - start_site) * _smooth(t / ends[0])
             elif t < ends[1]:
-                target = pre + (aff.handle - pre) * _smooth((t - ends[0]) / (ends[1] - ends[0]))
+                target = pre + (handle_w - pre) * _smooth((t - ends[0]) / (ends[1] - ends[0]))
             elif t < ends[2]:
-                if not d.eq_active[eq]:
-                    # close the hand: tie the grip point to wherever it touches the part
-                    Rc = d.xmat[child].reshape(3, 3)
-                    m.eq_data[eq][0:3] = anchor
-                    m.eq_data[eq][3:6] = Rc.T @ (d.site_xpos[site] - d.xpos[child])
-                    d.eq_active[eq] = 1
-                    grasp_point = d.site_xpos[site].copy() - up  # plan where the hand actually holds
+                if not grasped and np.isinf(grasp_gap):
+                    # close the hand only if it is actually touching the real part (not the twin's guess)
+                    grasp_gap = _distance_to_body(mujoco, m, d, child, d.site_xpos[site])
+                    if grasp_gap <= GRASP_TOL:
+                        Rc = d.xmat[child].reshape(3, 3)
+                        m.eq_data[eq][0:3] = anchor
+                        m.eq_data[eq][3:6] = Rc.T @ (d.site_xpos[site] - d.xpos[child])
+                        d.eq_active[eq] = 1
+                        grasped = True
+                        if GRASP_COMPLIANCE != 1.0:
+                            for a in arm_acts:  # a position servo's kp and its bias term scale together
+                                m.actuator_gainprm[a, 0] *= GRASP_COMPLIANCE
+                                m.actuator_biasprm[a, 1] *= GRASP_COMPLIANCE
+                        grasp_point = d.site_xpos[site].copy() - up  # plan where the hand actually holds
                 s_ = _smooth((t - ends[1]) / (ends[2] - ends[1]))
                 target = handle_path(twin, twin_joint, aff, aff.q_closed + s_ * (aff.q_open - aff.q_closed), grasp_point) + up
             else:
                 target = handle_path(twin, twin_joint, aff, aff.q_open, grasp_point) + up
-            q_ref = _ik_step(mujoco, m, ik, d, q_ref, arm, arm_q, arm_v, site, target, default)
+            # task-space integral action for robots with joint friction (it leaves position servos short of
+            # the reference): adapt while reaching, then let it fade once the part guides the hand
+            if not grasped:
+                i_corr = np.clip(i_corr + robot.reach_ki * (target - d.site_xpos[site]), -REACH_I_MAX, REACH_I_MAX)
+            else:
+                i_corr *= 0.98
+            q_ref = _ik_step(mujoco, m, ik, d, q_ref, arm, arm_q, arm_v, site, target + i_corr, default)
             err = target - d.site_xpos[site]
             d.ctrl[arm_acts] = q_ref
+            if rec is not None:
+                rows_ = np.flatnonzero(d.efc_type[: d.nefc] == mujoco.mjtConstraint.mjCNSTR_EQUALITY)
+                rec["t"].append(t)
+                rec["phase"].append(int(np.searchsorted(ends, t, side="right")))
+                rec["q_ref"].append(q_ref.copy())
+                rec["q"].append(d.qpos[arm_q].copy())
+                rec["hand"].append(d.site_xpos[site].copy())
+                rec["target"].append(np.asarray(target, float).copy())
+                rec["object_q"].append(float(d.qpos[qadr]))
+                rec["grasp_force"].append(float(np.linalg.norm(d.efc_force[rows_])) if (len(rows_) and d.eq_active[eq]) else 0.0)
             if ends[1] <= t < ends[3] and d.eq_active[eq]:
                 rows = np.flatnonzero(d.efc_type[: d.nefc] == mujoco.mjtConstraint.mjCNSTR_EQUALITY)
                 forces.append(float(np.linalg.norm(d.efc_force[rows])) if len(rows) else 0.0)
@@ -383,6 +482,9 @@ def execute(world_mjcf: str, world_child: str, world_joint: str, world_q: tuple[
     opened = (d.qpos[qadr] - world_q[0]) / span if span else 0.0
     peak = max(forces) if forces else 0.0
     res = TaskResult(twin_joint.name, aff.kind, float(opened), peak, float(np.mean(forces)) if forces else 0.0,
-                     1000 * max(tracks) if tracks else 0.0, bool(opened >= 0.9 and peak < SAFE_FORCE_N))
+                     1000 * max(tracks) if tracks else 0.0, False, grasped, 1000 * grasp_gap)
+    res.success = judge(res)
     res.frames = frames
+    if rec is not None:
+        res.log = {**rec, "joint_names": np.array(names), "phase_names": np.array(phase_names)}
     return res

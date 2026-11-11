@@ -27,11 +27,17 @@ whether the twin was good enough to act on, not just good enough to look at.
      position servos track it. That avoids the windup you get from integrating IK on a lagging
      measured state.
    - On Apollo the IK spans torso yaw, torso pitch and the 7-DoF arm.
-   - The grasp is a MuJoCo `connect` constraint switched on at contact.
+   - Both robots get gravity-compensation feedforward. Apollo's model has realistic joint friction,
+     so it also gets task-space integral action while reaching, faded out once it has grasped.
+   - The hand closes (a MuJoCo `connect` constraint) **only if it is within 3 cm of the real part's
+     surface**. A twin that puts the handle in the wrong place misses, and the miss counts as a failure.
    - Once grasped, the hand follows the twin-predicted path of the point it *actually* holds.
-4. **Score in the truth.** Recorded: the opening reached on the true joint, the peak and mean grasp
-   force, the tracking error, and the same task replayed with the true joint (the oracle). The force
-   above the oracle is exactly what the twin's error costs.
+4. **Score in the truth.** Recorded: the opening reached on the true joint, the peak grasp force, the
+   hand's deviation from its planned path, and whether the grasp happened. The same task is replayed
+   with the true joint (the oracle).
+   - **Feasible:** the oracle grasps, opens the part at least 90%, and peaks at 120 N or less.
+   - **Success:** the twin plan does the same with at most 10 N more peak force than the oracle.
+   - Tasks the robot cannot do even with the true joint are reported as infeasible, never as passes.
 
 ## Results (reproduce: `objectmodel task-bench`, `objectmodel task fridge --robot apollo`)
 
@@ -59,7 +65,7 @@ which are currently open):
 | Team / role (as posted) | What they ask for | Where it shows up here |
 |---|---|---|
 | **Developer Experience SWE intern** | C++/Python/TS, Git, Linux, experience with AI coding agents, tools that help engineers deploy and test | One-command CLI (`objectmodel task`, `bench`, `task-bench`), an MCP server so agents can call the pipeline, a hosted REST API and playground, CI on every push, 125+ tests, a dev server that mirrors production |
-| **Robotics SWE intern, real-time controls** | C++, coordinate frames, linear algebra, physics, actuators | A C++17/Eigen core (`cpp/twin_core.cpp`) for Kabsch, joint fitting and the DLS IK step. It matches NumPy to ~1e-16, fits revolute joints ~200–380× faster, and takes 0.16 µs per IK step. Also: quaternion and RPY conventions checked URDF-vs-MJCF to 0.00 mm, and servo tracking under constraint load |
+| **Robotics SWE intern, real-time controls** | C++, coordinate frames, linear algebra, physics, actuators | A C++17/Eigen core (`cpp/twin_core.cpp`) for Kabsch, joint fitting and the DLS IK step. It matches NumPy to ~1e-16, fits revolute joints ~30× faster than the vectorised NumPy path (benchmarking it also exposed a full-matrix SVD that made the NumPy path 16× slower than needed; fixed), and takes 0.16 µs per IK step. Also: quaternion and RPY conventions checked URDF-vs-MJCF to 0.00 mm, and servo tracking under constraint load |
 | **Motion control and planning** | MuJoCo/Isaac/Drake, whole-body control | Upper-body IK across torso and arm on the Apollo model, stance planning against the predicted handle arc, constraint-force metrics |
 | **Simulation, core platform, sim-to-real** | MuJoCo or Isaac Lab, CI, "accurate enough for controls validation", system ID | Simulator-in-the-loop validation of every twin (compile, replay, collision sweep, stability), estimating joint parameters from motion (a system-ID cousin), noise and camera-motion sweeps, a reproducible benchmark harness |
 | **Autonomy intern** | Python/C++, ROS 2, validate in sim then on hardware | An end-to-end perceive → model → plan → act → verify loop in sim. *Not yet ROS 2: see next steps.* |

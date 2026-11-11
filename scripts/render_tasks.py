@@ -39,7 +39,8 @@ def main() -> None:
         poster = os.path.join(OUT, name + ".jpg")
         subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-ss", "5.2", "-i", mp4, "-frames:v", "1", "-q:v", "4", poster], check=True)
         results[name] = {**case.result.summary(), "oracle_peak_force_n": round(case.oracle.peak_force_n, 1),
-                         "excess_peak_n": round(case.excess_peak_n, 1), "robot": robot, "object": obj, "part": joint}
+                         "excess_peak_n": round(case.excess_peak_n, 1), "robot": robot, "object": obj, "part": joint,
+                         "success": case.success}  # judged against the oracle, not an absolute force limit
         print(name, results[name], flush=True)
     with open(os.path.join(OUT, "results.json"), "w") as f:
         json.dump(results, f, indent=1)

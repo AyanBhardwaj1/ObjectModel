@@ -52,10 +52,12 @@ def test_measured_twin_opens_the_drawer_like_the_oracle():
 
 
 def test_wrong_axis_makes_the_robot_fight_the_joint():
-    (good,) = run_task("kitchen_cabinet", joints=["door"])
-    (bad,) = run_task("kitchen_cabinet", joints=["door"], perturb_deg=10.0)
-    assert good.success and not bad.success
-    assert bad.excess_peak_n > good.excess_peak_n + 50.0
+    (good,) = run_task("kitchen_cabinet", joints=["drawer"])
+    (off5,) = run_task("kitchen_cabinet", joints=["drawer"], perturb_deg=5.0)
+    (off10,) = run_task("kitchen_cabinet", joints=["drawer"], perturb_deg=10.0)
+    assert good.success and abs(good.excess_peak_n) < 3.0
+    assert off5.excess_peak_n > 10.0  # the arm pulls against the slide
+    assert not off10.success  # 10° off: the planned handle point is no longer on the drawer front
 
 
 def test_perturb_rotates_the_axis_by_the_requested_angle(cabinet_truth):
@@ -88,3 +90,32 @@ def test_cli_task_runs(capsys):
     from objectmodel.cli import main
     assert main(["task", "drawer_cabinet"]) == 0
     assert "OK" in capsys.readouterr().out
+
+
+def test_demonstration_log_is_complete(tmp_path):
+    (case,) = run_task("drawer_cabinet", log=True, oracle=False)
+    path = tmp_path / "demo.npz"
+    case.result.save_demo(str(path), object="drawer_cabinet")
+    with np.load(path, allow_pickle=False) as z:
+        n = len(z["t"])
+        assert n > 500  # 100 Hz over ~7 s
+        assert z["q_ref"].shape == (n, 7) and z["hand"].shape == (n, 3) and z["object_q"].shape == (n,)
+        assert z["grasp_force"].max() > 0 and z["phase"].max() == 3
+        assert abs(z["object_q"][-1] - z["object_q"][0]) > 0.1  # the drawer really moved
+
+
+def test_a_mislocated_handle_misses_the_grasp_and_fails():
+    """The grasp only closes on the real part: a twin that puts the handle off the part cannot pass."""
+    (good,) = run_task("drawer_cabinet", oracle=False)
+    (near,) = run_task("drawer_cabinet", oracle=False, handle_shift=0.15)  # still on the 0.38 m drawer front
+    (bad,) = run_task("drawer_cabinet", oracle=False, handle_shift=0.25)
+    assert good.result.grasped and good.success and near.result.grasped
+    assert not bad.result.grasped and not bad.result.success
+    assert bad.result.grasp_gap_mm > 30
+
+
+def test_infeasible_tasks_are_not_counted_as_success():
+    from objectmodel.task_bench import summary_table, sweep
+    rows = sweep(objects=("kitchen_cabinet",), errors=(0.0,))
+    assert all(not r.success for r in rows if not r.feasible)
+    assert "feasible tasks" in summary_table(rows)

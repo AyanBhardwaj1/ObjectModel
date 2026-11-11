@@ -44,6 +44,8 @@ class Placement:
 
 class Robot:
     name = "robot"
+    root_body = "humanoid"  # every body below this one belongs to the robot
+    reach_ki = 0.0  # task-space integral gain while reaching (robots with joint friction need it)
     adjustable_height = True
     shoulder_lateral = 0.21  # torso centre to shoulder, metres
     shoulder_height = 0.42  # base frame to shoulder
@@ -123,6 +125,14 @@ APOLLO_STAND = {  # from the model's "stand" keyframe
 APOLLO_PELVIS_Z = 1.01597  # pelvis height in the stand keyframe (feet on the floor)
 
 
+def _sub_once(pattern: str, repl: str, text: str, what: str) -> str:
+    """Substitute exactly once, or fail loudly: a silent miss would leave a free-floating robot."""
+    out, n = re.subn(pattern, repl, text, count=1, flags=re.S)
+    if n != 1:
+        raise ValueError(f"Apollo model layout changed: could not find the {what}; update robots.py for this Menagerie version")
+    return out
+
+
 def menagerie_path() -> str | None:
     root = os.environ.get(MENAGERIE_ENV, DEFAULT_MENAGERIE)
     xml = os.path.join(root, "apptronik_apollo", "apptronik_apollo.xml")
@@ -131,6 +141,8 @@ def menagerie_path() -> str | None:
 
 class ApolloHumanoid(Robot):
     name = "apollo"
+    root_body = "base_link"
+    reach_ki = 0.06  # the Menagerie model has realistic joint friction (frictionloss up to 13 N·m)
     adjustable_height = False
     shoulder_lateral = 0.20
     shoulder_height = 1.367 - APOLLO_PELVIS_Z  # pelvis frame to shoulder
@@ -168,17 +180,17 @@ class ApolloHumanoid(Robot):
         src = open(self.xml_path).read()
         asset_dir = os.path.join(os.path.dirname(self.xml_path), "assets")
         src = src.replace('meshdir="assets"', f'meshdir="{asset_dir}"').replace('texturedir="assets"', f'texturedir="{asset_dir}"')
-        src = re.sub(r'\s*<joint name="floating_base"[^>]*/>', "", src)  # pelvis held at its standing pose
-        src = re.sub(r"<keyframe>.*?</keyframe>", "", src, flags=re.S)
+        src = _sub_once(r'\s*<joint name="floating_base"[^>]*/>', "", src, "floating base joint")  # pelvis held at stand
+        src = re.sub(r"<keyframe>.*?</keyframe>", "", src, flags=re.S)  # optional: keyframes size qpos for the free joint
         q = matrix_to_quat_wxyz(axis_angle_to_matrix([0, 0, 1], yaw))
-        src = re.sub(r'<body name="base_link" pos="[^"]*">',
-                     f'<body name="base_link" pos="{base[0]:.4f} {base[1]:.4f} {APOLLO_PELVIS_Z:.5f}" '
-                     f'quat="{q[0]:.6f} {q[1]:.6f} {q[2]:.6f} {q[3]:.6f}">', src, count=1)
+        src = _sub_once(r'<body name="base_link" pos="[^"]*">',
+                        f'<body name="base_link" pos="{base[0]:.4f} {base[1]:.4f} {APOLLO_PELVIS_Z:.5f}" '
+                        f'quat="{q[0]:.6f} {q[1]:.6f} {q[2]:.6f} {q[3]:.6f}">', src, "base_link body")
         for s in ("r", "l"):
             p = APOLLO_PALM[s]
-            src = re.sub(rf'(<body name="{s}_wrist_pitch_link"[^>]*>)',
-                         rf'\1<site name="{s}_grip" pos="{p[0]} {p[1]} {p[2]}" size="0.012" rgba="0.76 0.57 0.27 1"/>',
-                         src, count=1)
+            src = _sub_once(rf'(<body name="{s}_wrist_pitch_link"[^>]*>)',
+                            rf'\1<site name="{s}_grip" pos="{p[0]} {p[1]} {p[2]}" size="0.012" rgba="0.76 0.57 0.27 1"/>',
+                            src, f"{s}_wrist_pitch_link body")
         world = re.search(r"<worldbody>(.*?)</worldbody>", _studio_floor(world_mjcf), flags=re.S).group(1)
         src = src.replace("</worldbody>", world + "\n  </worldbody>", 1)
         a = self.anchor(side)

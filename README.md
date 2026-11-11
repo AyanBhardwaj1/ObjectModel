@@ -209,7 +209,7 @@ cmake -S cpp -B cpp/build && cmake --build cpp/build
 python -m objectmodel.native    # parity with NumPy (~1e-16) and timing
 ```
 
-Revolute fitting over 240 frames runs about 200–380× faster than NumPy, and one IK step takes 0.16 µs
+Revolute fitting over 240 frames runs about 30× faster than the (already vectorised) NumPy version, and one IK step takes 0.16 µs
 inside the loop. The Python package works without the C++ core; CI builds it and runs the parity tests.
 
 ## Website and hosted API

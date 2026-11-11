@@ -75,7 +75,7 @@ def _fit_prismatic(motions: list[Pose]) -> tuple[np.ndarray, np.ndarray]:
 
 def _fit_revolute(motions: list[Pose], centroid: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     A = np.concatenate([m.R - np.eye(3) for m in motions])
-    _, _, Vt = np.linalg.svd(A)
+    _, _, Vt = np.linalg.svd(A, full_matrices=False)  # economy SVD: the full U would be 3T x 3T
     u = Vt[-1]
     M = np.concatenate([np.eye(3) - m.R for m in motions])
     b = np.concatenate([m.t for m in motions])

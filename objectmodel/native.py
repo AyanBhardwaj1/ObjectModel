@@ -75,6 +75,8 @@ def kabsch(P: np.ndarray, Q: np.ndarray, w: np.ndarray | None = None) -> tuple[n
     Q = np.ascontiguousarray(Q, float)
     if P.shape != Q.shape or P.ndim != 2 or P.shape[1] != 3:
         raise ValueError("kabsch expects matching (N,3) arrays")
+    if w is not None and np.shape(w) != (len(P),):
+        raise ValueError("w must have one weight per point")
     wp = None if w is None else _ptr(np.ascontiguousarray(w, float))
     R, t = np.zeros(9), np.zeros(3)
     _check(lib.om_kabsch(_ptr(P), _ptr(Q), wp, len(P), _ptr(R), _ptr(t)))
@@ -86,6 +88,8 @@ def fit_revolute(motions, centroid: np.ndarray) -> tuple[np.ndarray, np.ndarray,
     m = _pack(motions)
     axis, pivot, theta = np.zeros(3), np.zeros(3), np.zeros(len(m))
     c = np.ascontiguousarray(centroid, float)
+    if c.shape != (3,):
+        raise ValueError("centroid must be a 3-vector")
     _check(lib.om_fit_revolute(_ptr(m), len(m), _ptr(c), _ptr(axis), _ptr(pivot), _ptr(theta)))
     return axis, pivot, theta
 
@@ -103,6 +107,8 @@ def dls_step(J: np.ndarray, err: np.ndarray, lam: float) -> np.ndarray:
     J = np.ascontiguousarray(J, float)
     if J.ndim != 2 or J.shape[0] != 3:
         raise ValueError("J must be 3 x n")
+    if np.shape(err) != (3,):
+        raise ValueError("err must be a 3-vector")
     dq = np.zeros(J.shape[1])
     _check(lib.om_dls_step(_ptr(J), J.shape[1], _ptr(np.ascontiguousarray(err, float)), float(lam), _ptr(dq)))
     return dq

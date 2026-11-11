@@ -107,7 +107,7 @@ def cmd_task(args) -> int:
         print(f"unknown object {args.object!r}; choose from {', '.join(s.CATALOGUE)}", file=sys.stderr)
         return 2
     cases = run_task(args.object, seed=args.seed, noise_mm=args.noise, perturb_deg=args.perturb,
-                     joints=args.joint or None, robot=args.robot, render=bool(args.video))
+                     joints=args.joint or None, robot=args.robot, render=bool(args.video), log=bool(args.demo))
     if not cases:
         print("no openable first-level joints found", file=sys.stderr)
         return 1
@@ -116,6 +116,10 @@ def cmd_task(args) -> int:
         print(f"{c.object}/{c.joint:<12} {r.kind:<5} opened {r.opened_fraction:5.0%}  grasp peak {r.peak_force_n:6.1f} N "
               f"(oracle {c.oracle.peak_force_n:6.1f} N)  tracking {r.max_track_mm:5.1f} mm  axis error {c.axis_error_deg:4.1f}°  "
               f"{'OK' if c.success else 'FAIL'}")
+        if args.demo:
+            out = args.demo if len(cases) == 1 else args.demo.replace(".npz", f"_{c.joint}.npz")
+            r.save_demo(out, object=c.object, part=c.joint, robot=args.robot, perturb_deg=args.perturb)
+            print(f"  wrote demonstration {out}")
         if args.video:
             from .media import write_mp4
             out = args.video if len(cases) == 1 else args.video.replace(".mp4", f"_{c.joint}.mp4")
@@ -199,6 +203,7 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--noise", type=float, default=1.0, help="tracking noise in mm")
     t.add_argument("--seed", type=int, default=0)
     t.add_argument("--video", help="write an MP4 of the run (needs MUJOCO_GL=egl or osmesa)")
+    t.add_argument("--demo", help="write the run as a demonstration .npz (joint refs, hand path, object state, grasp force)")
     t.set_defaults(fn=cmd_task)
 
     tb = sub.add_parser("task-bench", help="sweep twin axis error and measure the extra grasp force it causes")

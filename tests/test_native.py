@@ -61,3 +61,11 @@ def test_bad_arguments_are_rejected():
         native.kabsch(np.zeros((2, 3)), np.zeros((2, 3)))
     with pytest.raises(ValueError):
         native.dls_step(np.zeros((2, 4)), np.zeros(3), 0.1)
+
+
+def test_wrong_buffer_lengths_are_rejected():
+    P = np.random.default_rng(0).normal(size=(10, 3))
+    with pytest.raises(ValueError):
+        native.kabsch(P, P + 1, w=np.ones(3))
+    with pytest.raises(ValueError):
+        native.dls_step(np.zeros((3, 4)), np.zeros(2), 0.1)

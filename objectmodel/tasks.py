@@ -12,7 +12,7 @@ import numpy as np
 from . import synthetic as s
 from .export import to_mjcf
 from .geometry import axis_angle_to_matrix
-from .humanoid import SAFE_FORCE_N, TaskResult, closed_and_open, execute
+from .humanoid import TaskResult, closed_and_open, execute
 from .model import ArticulatedModel, Joint, Link
 from .physics import PartGeometry, physical_props
 from .pipeline import run
@@ -55,19 +55,32 @@ class TaskCase:
 
     @property
     def excess_peak_n(self) -> float:
-        """Grasp force the twin's error added on top of what the task itself needs."""
+        """Grasp force above the true-joint plan (signed: run-to-run noise can make it slightly negative)."""
         base = self.oracle.peak_force_n if self.oracle else 0.0
-        return max(0.0, self.result.peak_force_n - base)
+        return self.result.peak_force_n - base
+
+    @property
+    def feasible(self) -> bool:
+        """Can this robot and controller do the task at all? (The plan with the true joint succeeds.)"""
+        return self.oracle is None or self.oracle.success
 
     @property
     def success(self) -> bool:
-        base = self.oracle.peak_force_n if self.oracle else 0.0
-        return self.result.opened_fraction >= 0.9 and self.result.peak_force_n <= max(SAFE_FORCE_N, 1.25 * base)
+        from .humanoid import judge
+        return self.feasible and judge(self.result, self.oracle)
 
 
 def _owner(labels: np.ndarray, gt: np.ndarray, part: int) -> int:
     vals, counts = np.unique(gt[(labels == part) & (gt >= 0)], return_counts=True)
     return int(vals[np.argmax(counts)])
+
+
+def _lateral_shift(model: ArticulatedModel, joint: Joint, metres: float) -> np.ndarray:
+    """A sideways offset along the part's face (perpendicular to the approach), for localisation studies."""
+    from .humanoid import affordance
+    n = affordance(model, joint).normal
+    side = np.cross([0, 0, 1], n)
+    return side / max(np.linalg.norm(side), 1e-9) * metres
 
 
 def work_height_lift(truth: ArticulatedModel, joint: Joint, robot) -> float:
@@ -81,7 +94,8 @@ def work_height_lift(truth: ArticulatedModel, joint: Joint, robot) -> float:
 
 def run_task(object_name: str, seed: int = 0, noise_mm: float = 1.0, perturb_deg: float = 0.0,
              joints: list[str] | None = None, render: bool = False, oracle: bool = True,
-             robot: str = "generic", lift: float | None = None, fps: int = 30, size=(960, 540)) -> list[TaskCase]:
+             robot: str = "generic", lift: float | None = None, fps: int = 30, size=(960, 540),
+             log: bool = False, handle_shift: float = 0.0) -> list[TaskCase]:
     """Open every first-level joint of an object (or the named GT children) with the humanoid."""
     from .geometry import angle_between_axes
     from .robots import get_robot
@@ -106,8 +120,9 @@ def run_task(object_name: str, seed: int = 0, noise_mm: float = 1.0, perturb_deg
         plan_joint = perturb(tj, perturb_deg)
         plan = replace(twin, joints=[plan_joint if j.name == tj.name else j for j in twin.joints])
         wq = closed_and_open(truth, gj)
-        h = lift if lift is not None else work_height_lift(truth, gj, bot)
-        res = execute(world_xml, gj.child, gj.name, wq, plan, plan_joint, robot=bot, lift=h, render=render, fps=fps, size=size)
+        h = lift if lift is not None else work_height_lift(twin, tj, bot)  # chosen from the twin only
+        res = execute(world_xml, gj.child, gj.name, wq, plan, plan_joint, robot=bot, lift=h, render=render, fps=fps, size=size, log=log,
+                      handle_shift=None if not handle_shift else _lateral_shift(plan, plan_joint, handle_shift))
         ora = execute(world_xml, gj.child, gj.name, wq, truth, gj, robot=bot, lift=h) if oracle else None
         cases.append(TaskCase(object_name, gt_part, res, ora, angle_between_axes(plan_joint.axis, gj.axis)))
     return cases
