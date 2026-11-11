@@ -146,8 +146,17 @@ def build_gallery() -> None:
 
 def build_samples() -> None:
     os.makedirs(os.path.join(WEB, "samples"), exist_ok=True)
-    with open(os.path.join(WEB, "samples", "kitchen_cabinet.json"), "w") as f:
-        json.dump(reconstruct_demo({"object": "kitchen_cabinet"}), f)
+    path = os.path.join(WEB, "samples", "kitchen_cabinet.json")
+    new = reconstruct_demo({"object": "kitchen_cabinet"})
+    try:
+        with open(path) as f:
+            old = json.load(f)
+    except (OSError, ValueError):
+        old = None
+    same = old is not None and {k: v for k, v in old.items() if k != "seconds"} == {k: v for k, v in new.items() if k != "seconds"}
+    if not same:  # only the run time changed: keep the file so rebuilds don't churn git
+        with open(path, "w") as f:
+            json.dump(new, f)
     ts = s.generate_tracks(s.laptop(), seed=7)
     buf = io.BytesIO()
     np.savez_compressed(buf, points=ts.points.astype(np.float32), visible=ts.visible)
