@@ -105,10 +105,19 @@ def joint_motion(j: GTJoint, q: float) -> Pose:
 
 
 def _smooth_profile(T: int, lower: float, upper: float, phase: float, rng) -> np.ndarray:
+    """Start at the rest pose (0, the modelled geometry) and swing toward the far limit and back.
+
+    Starting at 0 keeps frame 0 identical to the part geometry, so a door whose range is
+    negative opens outward instead of being re-zeroed into the cabinet.
+    """
     s = np.linspace(0, 1, T)
-    wave = 0.5 - 0.5 * np.cos(2 * np.pi * (s * 1.0 + phase))
-    span = upper - lower
-    return lower + 0.05 * span + 0.9 * span * wave + rng.normal(0, 0.002 * span, T) * 0
+    far = lower if abs(lower) > abs(upper) else upper
+    if not (lower <= 0.0 <= upper):
+        far = upper
+    delay = phase % 0.3  # joints start at different times so their motions are distinct
+    u = np.clip((s - delay) / (1.0 - delay), 0.0, 1.0)
+    wave = 0.5 - 0.5 * np.cos(2 * np.pi * u)
+    return 0.9 * far * wave
 
 
 def animate(obj: SyntheticObject, T: int, rng: np.random.Generator) -> tuple[list[list[Pose]], dict]:
@@ -116,8 +125,7 @@ def animate(obj: SyntheticObject, T: int, rng: np.random.Generator) -> tuple[lis
     by_child = {j.child: j for j in obj.joints}
     states = {}
     for k, j in enumerate(obj.joints):
-        q = _smooth_profile(T, j.lower, j.upper, phase=0.17 * k, rng=rng)
-        q = q - q[0]  # rest pose = frame 0
+        q = _smooth_profile(T, j.lower, j.upper, phase=0.17 * k, rng=rng)  # q[0] == 0: rest pose = frame 0
         states[j.child] = q
     poses: list[list[Pose]] = [[Pose.identity()] * len(names) for _ in range(T)]
     order = _topological(obj)
