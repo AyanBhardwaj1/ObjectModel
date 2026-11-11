@@ -133,9 +133,10 @@ MUJOCO_GL=egl objectmodel task fridge --robot apollo --video fridge.mp4
   Next: couple this to a whole-body controller so the robot can step and crouch to low handles.
 - **Robot–object contacts are off** during the task, so the run *measures* clearance instead
   (`docs/clearance.md`). That check found Apollo's idle arm swinging up to 24 cm into the object when
-  the torso turned; the idle arm now stays at its side, and the rest of the body keeps at least 41 mm
-  clear in all ten tasks. Still open: the working wrist or forearm cuts into swinging doors (up to
-  12 cm on Apollo, 5 cm on the generic arm) because the IK controls hand position, not orientation.
+  the torso turned; the idle arm now stays at its side, and everything but the working forearm keeps at
+  least 41 mm clear in all ten tasks. Still open: the working forearm cuts into swinging doors (up to
+  12 cm on Apollo, 5 cm on the generic arm) and Apollo's into drawer fronts (up to 4 cm), because the IK
+  controls hand position, not orientation.
   Next: orientation-aware IK, then contacts on.
 - **The control loop runs in Python.** The C++ core has the DLS solve, but FK and Jacobians still come from MuJoCo. Next: move the
   1 kHz loop into C++ and add a ROS 2 node that publishes the twin and the `objectmodel plan` JSON as messages (`/object_model`,

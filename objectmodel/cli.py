@@ -134,6 +134,9 @@ def cmd_plan(args) -> int:
 
     from .tasks import plan_tasks
 
+    if args.waypoints < 2:
+        print("--waypoints must be at least 2", file=sys.stderr)
+        return 2
     out = plan_tasks(args.object, seed=args.seed, noise_mm=args.noise, robot=args.robot, waypoints=args.waypoints)
     if not out["tasks"]:
         print("no openable first-level joints found", file=sys.stderr)
@@ -234,7 +237,7 @@ def build_parser() -> argparse.ArgumentParser:
     pl = sub.add_parser("plan", help="export the twin-based task plan (handle, approach, stance, path) as JSON")
     pl.add_argument("object", choices=list(s.CATALOGUE))
     pl.add_argument("--robot", default="generic", choices=["generic", "apollo"])
-    pl.add_argument("--waypoints", type=int, default=21)
+    pl.add_argument("--waypoints", type=int, default=21, help="handle-path samples, at least 2")
     pl.add_argument("--noise", type=float, default=1.0, help="tracking noise in mm")
     pl.add_argument("--seed", type=int, default=0)
     pl.add_argument("--out", help="write JSON here instead of printing it")

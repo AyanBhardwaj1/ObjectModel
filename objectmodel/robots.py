@@ -145,7 +145,7 @@ def menagerie_path() -> str | None:
 class ApolloHumanoid(Robot):
     name = "apollo"
     collision_group = 3  # Menagerie: group 3 holds the collision primitives, group 1 the visual meshes
-    hand_links = 3  # the palm (wrist pitch link) and the wrist yaw and roll links, all at the wrist
+    hand_links = 2  # palm (wrist pitch link) and wrist yaw link; the wrist roll link's capsule is the forearm
     root_body = "base_link"
     reach_ki = 0.06  # the Menagerie model has realistic joint friction (frictionloss up to 13 N·m)
     adjustable_height = False

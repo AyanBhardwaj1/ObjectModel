@@ -25,6 +25,7 @@ STANDOFF = 0.52  # metres between handle and torso, horizontally
 SHOULDER_ABOVE_HANDLE = 0.28
 # position-servo stiffness per joint, N·m/rad: strong shoulder and elbow, compliant wrist (as on real arms)
 ARM_KP = {"sh_pitch": 900, "sh_roll": 900, "sh_yaw": 700, "elbow": 800, "wr_yaw": 250, "wr_pitch": 250, "wr_roll": 200}
+CLEARANCE_MAX = 5.0  # metres; mj_geomDistance reports this when two geoms are farther apart
 GRASP_TOL = 0.03  # the hand must be this close to the real part's surface to close on it
 REACH_I_MAX = 0.10  # metres; cap on the integral correction
 GRASP_COMPLIANCE = 1.0  # post-grasp servo stiffness scale. Softer arms (0.3 was tried) hide twin errors:
@@ -229,10 +230,18 @@ def handle_path(model: ArticulatedModel, j: Joint, aff: Affordance, q: float, po
     return _joint_motion(j, q - aff.q_closed, p[None])[0]
 
 
-def _plan_body(model: ArticulatedModel, j: Joint, aff: Affordance, robot, up: np.ndarray, n: int = 9):
-    """Handle path (n waypoints, closed to open), working arm, shoulder, base position and base yaw."""
-    path = np.array([handle_path(model, j, aff, aff.q_closed + f * (aff.q_open - aff.q_closed)) for f in np.linspace(0, 1, n)]) + up
-    side, shoulder = plan_stance(aff, path, robot)
+STANCE_SAMPLES = 9  # handle-path samples the stance search scores; fixed so every caller gets the same stance
+
+
+def _plan_body(model: ArticulatedModel, j: Joint, aff: Affordance, robot, up: np.ndarray, n: int = STANCE_SAMPLES):
+    """Handle path (n waypoints, closed to open), working arm, shoulder, base position and base yaw.
+
+    The stance is always searched over STANCE_SAMPLES path points, whatever n is, so an exported plan with
+    more waypoints stands exactly where execute() stands.
+    """
+    sample = lambda k: np.array([handle_path(model, j, aff, aff.q_closed + f * (aff.q_open - aff.q_closed)) for f in np.linspace(0, 1, k)]) + up
+    path = sample(n)
+    side, shoulder = plan_stance(aff, path if n == STANCE_SAMPLES else sample(STANCE_SAMPLES), robot)
     left = np.cross([0, 0, 1], -aff.normal)
     base = shoulder + left * robot.shoulder_lateral * (1.0 if side == "r" else -1.0)
     base[2] = max(shoulder[2] - robot.shoulder_height, 0.12)
@@ -252,6 +261,8 @@ def task_plan(model: ArticulatedModel, j: Joint, robot=None, lift: float = 0.0, 
     """
     from .robots import GenericHumanoid
 
+    if waypoints < 2:
+        raise ValueError("a plan needs at least 2 waypoints (closed and open)")
     robot = robot or GenericHumanoid()
     aff = affordance(model, j)
     up = np.array([0.0, 0.0, lift])
@@ -548,8 +559,8 @@ def execute(world_mjcf: str, world_child: str, world_joint: str, world_q: tuple[
                 rec["grasp_force"].append(float(np.linalg.norm(d.efc_force[rows_])) if (len(rows_) and d.eq_active[eq]) else 0.0)
             if (step // steps_per_ctrl) % 5 == 0:  # 20 Hz is plenty to catch an arm sweeping into the object
                 for gr, go in pairs:
-                    dist = mujoco.mj_geomDistance(m, d, gr, go, 0.5, None)
-                    if dist < clearance:
+                    dist = mujoco.mj_geomDistance(m, d, gr, go, CLEARANCE_MAX, None)  # capped at CLEARANCE_MAX
+                    if dist < clearance and dist < CLEARANCE_MAX:
                         clearance, clear_body = dist, m.geom_bodyid[gr]
             if ends[1] <= t < ends[3] and d.eq_active[eq]:
                 rows = np.flatnonzero(d.efc_type[: d.nefc] == mujoco.mjtConstraint.mjCNSTR_EQUALITY)
@@ -569,7 +580,7 @@ def execute(world_mjcf: str, world_child: str, world_joint: str, world_q: tuple[
     peak = max(forces) if forces else 0.0
     res = TaskResult(twin_joint.name, aff.kind, float(opened), peak, float(np.mean(forces)) if forces else 0.0,
                      1000 * max(tracks) if tracks else 0.0, False, grasped, 1000 * grasp_gap,
-                     min_clearance_mm=1000 * clearance if pairs else float("inf"),
+                     min_clearance_mm=1000 * min(clearance, CLEARANCE_MAX) if pairs else float("inf"),
                      clearance_body=mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, clear_body) or "" if clear_body >= 0 else "")
     res.success = judge(res)
     res.frames = frames

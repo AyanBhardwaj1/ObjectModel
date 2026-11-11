@@ -63,7 +63,10 @@ def test_agent_can_plan_and_run_a_humanoid_task():
 
 @pytest.mark.parametrize("args, msg", [({"object": "spaceship"}, "object must be"),
                                        ({"object": "laptop", "robot": "bender"}, "robot must be"),
-                                       ({"object": "laptop", "perturb_deg": 90}, "perturb_deg")])
+                                       ({"object": "laptop", "perturb_deg": 90}, "perturb_deg"),
+                                       ({"object": "laptop", "seed": 1.9}, "seed"),
+                                       ({"object": "laptop", "seed": True}, "seed"),
+                                       ({"object": "laptop", "seed": float("inf")}, "seed")])
 def test_task_tools_validate_arguments(args, msg):
     out = call("run_task", args)["result"]
     assert out["isError"] and msg in out["content"][0]["text"]

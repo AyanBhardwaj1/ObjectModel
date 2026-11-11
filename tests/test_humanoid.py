@@ -164,4 +164,22 @@ def test_clearance_is_measured_and_excludes_the_hand():
 @pytest.mark.skipif(menagerie_path() is None, reason="MuJoCo Menagerie (Apollo model) not installed")
 def test_apollo_idle_arm_stays_clear_of_the_object():
     (case,) = run_task("kitchen_cabinet", joints=["drawer"], robot="apollo", oracle=False)
-    assert case.result.min_clearance_mm > 20  # held forward, the idle arm swung into the cabinet
+    # the drawer is pulled with the right arm; held forward, the idle left arm swung 13 cm into the cabinet
+    assert not case.result.clearance_body.startswith("l_")
+
+
+def test_exported_plan_stands_where_the_robot_stands():
+    from objectmodel.humanoid import task_plan
+    from objectmodel.tasks import plan_tasks
+    a = plan_tasks("kitchen_cabinet", waypoints=21)
+    b = plan_tasks("kitchen_cabinet", waypoints=9)
+    for ta, tb in zip(a["tasks"], b["tasks"]):
+        assert ta["stance"] == tb["stance"]  # the stance does not depend on how many waypoints are exported
+    with pytest.raises(ValueError):
+        task_plan(*_door(), waypoints=1)
+
+
+def _door():
+    obj = s.kitchen_cabinet()
+    truth = ground_truth_model(obj, s.generate_tracks(obj, seed=0))
+    return truth, next(j for j in truth.joints if j.child == "door")

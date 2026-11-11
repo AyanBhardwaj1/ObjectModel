@@ -112,21 +112,31 @@ def _task_args(args: dict) -> tuple[str, str]:
     return name, robot
 
 
+def _seed(args: dict) -> int:
+    seed = args.get("seed", 0)
+    if isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed < 2 ** 31:
+        raise ToolError("seed must be an integer in [0, 2^31)")
+    return seed
+
+
 def tool_plan_task(args: dict) -> str:
     from .tasks import plan_tasks
 
     name, robot = _task_args(args)
-    return json.dumps(plan_tasks(name, robot=robot, seed=int(args.get("seed", 0))), indent=1)
+    return json.dumps(plan_tasks(name, robot=robot, seed=_seed(args)), indent=1)
 
 
 def tool_run_task(args: dict) -> str:
     from .tasks import run_task
 
     name, robot = _task_args(args)
-    perturb = float(args.get("perturb_deg", 0.0))
+    try:
+        perturb = float(args.get("perturb_deg", 0.0))
+    except (TypeError, ValueError):
+        raise ToolError("perturb_deg must be a number") from None
     if not 0 <= perturb <= 45:
         raise ToolError("perturb_deg must be within [0, 45]")
-    cases = run_task(name, robot=robot, perturb_deg=perturb, seed=int(args.get("seed", 0)))
+    cases = run_task(name, robot=robot, perturb_deg=perturb, seed=_seed(args))
     return json.dumps([{"part": c.joint, **c.result.summary(), "oracle_peak_force_n": round(c.oracle.peak_force_n, 1),
                         "excess_peak_n": round(c.excess_peak_n, 1), "axis_error_deg": round(c.axis_error_deg, 2),
                         "feasible": c.feasible, "success": c.success} for c in cases], indent=1)

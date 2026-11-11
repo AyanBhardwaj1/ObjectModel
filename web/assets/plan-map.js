@@ -120,7 +120,11 @@
     const [obj, idx] = key.split(':');
     const task = data[obj].tasks[+idx];
     current = key;
-    tabs.querySelectorAll('[role="tab"]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.key === key)));
+    tabs.querySelectorAll('[role="tab"]').forEach((b) => {
+      const on = b.dataset.key === key;
+      b.setAttribute('aria-selected', String(on));
+      b.tabIndex = on ? 0 : -1; // roving tabindex: one tab stop for the whole list
+    });
     draw(task);
     const j = task.joint, st = task.stance;
     const span = Math.abs(j.q_open - j.q_closed);
@@ -160,9 +164,11 @@
     });
     tabs.replaceChildren(...buttons);
     tabs.addEventListener('keydown', (e) => {
-      const i = buttons.findIndex((b) => b.dataset.key === current);
-      const n = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : null;
-      if (n === null) return;
+      const from = buttons.indexOf(document.activeElement);
+      const i = from >= 0 ? from : buttons.findIndex((b) => b.dataset.key === current);
+      const n = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: buttons.length - 1 }[e.key];
+      if (n === undefined) return;
+      e.preventDefault();
       const b = buttons[(n + buttons.length) % buttons.length]; b.focus(); show(b.dataset.key);
     });
     show(`${Object.keys(d)[0]}:0`);
