@@ -157,17 +157,30 @@ def point_line_distance(p: np.ndarray, origin: np.ndarray, axis: np.ndarray) -> 
     return float(np.linalg.norm(d - np.dot(d, axis) * axis))
 
 
-def oriented_bounding_box(pts: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """PCA-based OBB -> (center, R columns = box axes, full extents)."""
+def _box_for_rotation(pts: np.ndarray, R: np.ndarray) -> tuple[float, np.ndarray, np.ndarray]:
+    local = pts @ R
+    lo, hi = local.min(axis=0), local.max(axis=0)
+    ext = hi - lo
+    return float(np.prod(np.maximum(ext, 1e-4))), R @ ((lo + hi) / 2), ext
+
+
+def oriented_bounding_box(pts: np.ndarray, yaw_steps: int = 36) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Approximate minimum-volume box -> (center, R columns = box axes, full extents).
+
+    Candidates: world axes, PCA axes, and world axes swept in yaw (gravity-aligned
+    furniture). PCA alone is unstable for near-cubic shapes.
+    """
     pts = np.asarray(pts, float)
     c = pts.mean(axis=0)
     if len(pts) < 4:
         return c, np.eye(3), np.full(3, 0.01)
     _, _, Vt = np.linalg.svd(pts - c, full_matrices=False)
-    R = Vt.T
-    if np.linalg.det(R) < 0:
-        R[:, 2] *= -1
-    local = (pts - c) @ R
-    lo, hi = local.min(axis=0), local.max(axis=0)
-    center = c + R @ ((lo + hi) / 2)
-    return center, R, hi - lo
+    pca = Vt.T.copy()
+    if np.linalg.det(pca) < 0:
+        pca[:, 2] *= -1
+    cands = [np.eye(3), pca]
+    for k in range(1, yaw_steps):
+        cands.append(axis_angle_to_matrix([0, 0, 1], np.pi / 2 * k / yaw_steps))
+    best = min((_box_for_rotation(pts, R) + (R,) for R in cands), key=lambda x: x[0])
+    _, center, ext, R = best
+    return center, R, ext
