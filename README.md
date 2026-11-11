@@ -174,6 +174,9 @@ The research behind the design is in [`reports/`](reports/) with notes in [`rese
 - The built-in video path handles in-plane motion or needs a depth stack. For hand-held monocular
   video, feed tracks from a 3D tracker + metric depth model through `objectmodel fit` (the estimator
   and validator handle camera motion).
+- Built-in Lucas-Kanade tracking drifts on large out-of-plane rotations in RGB-D renders
+  (`objectmodel/render.py`): the hinge direction is found but the swing is under-estimated, and the
+  validator flags the result. Use a long-range tracker's output with `objectmodel fit` for these.
 - Planned: screw (helical) joints, marker-based camera pose for hand-held capture, USD export,
   PartNet-Mobility benchmark import.
 

@@ -75,3 +75,24 @@ def test_missing_marker_is_a_clear_error(tmp_path):
     render_synthetic_video(path, "drawer")
     with pytest.raises(ValueError, match="ArUco"):
         tracks_from_video(path, VideoConfig(marker_mm=50))
+
+
+def test_rgbd_render_depth_is_consistent_with_backprojection(tmp_path):
+    """Renderer and depth lifting agree: back-projected static pixels land on the cabinet's front face."""
+    from objectmodel import synthetic as s
+    from objectmodel.render import render_rgbd
+
+    obj = s.SyntheticObject("box", [s.BoxPart("body", (0, 0, 0.4), (0.6, 0.5, 0.8)), s.BoxPart("lid", (0, -0.26, 0.6), (0.3, 0.02, 0.2))],
+                            [s.GTJoint("body", "lid", "revolute", (0, 0, 1), (-0.15, -0.26, 0.6), -0.2, 0.0)])
+    gt = render_rgbd(obj, str(tmp_path / "v.avi"), str(tmp_path / "d.npy"), frames=3, density=150_000)
+    depth = np.load(tmp_path / "d.npy")
+    H, W = depth.shape[1:]
+    v, u = np.mgrid[0:H, 0:W]
+    uv = np.stack([u.ravel(), v.ravel()], axis=1)[None].astype(float)
+    pts, vis = lift_depth(uv, np.ones(uv.shape[:2], bool), depth[:1], gt["fov_deg"])
+    world = pts[0][vis[0]] @ np.diag([1.0, 1.0, 1.0])
+    # camera-aligned lifted frame -> world: cam = (x, -z, y), world = R^T cam + eye
+    cam = np.stack([world[:, 0], -world[:, 2], world[:, 1]], axis=1)
+    w = cam @ gt["camera_rotation"] + np.array([0.3, -1.25, 0.95])
+    inside = (np.abs(w[:, 0]) <= 0.31) & (w[:, 1] >= -0.28) & (w[:, 1] <= 0.26) & (w[:, 2] >= -0.01) & (w[:, 2] <= 0.81)
+    assert inside.mean() > 0.97
