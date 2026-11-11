@@ -76,6 +76,30 @@ def cmd_video(args) -> int:
     return 0
 
 
+def cmd_gallery(args) -> int:
+    from .export import to_scene_json
+    from .viewer import render_gallery
+
+    scenes = []
+    for name in args.objects or list(s.CATALOGUE):
+        if name not in s.CATALOGUE:
+            print(f"unknown object {name!r}", file=sys.stderr)
+            return 2
+        obj = s.CATALOGUE[name]()
+        result = run(s.generate_tracks(obj, noise=args.noise / 1000, seed=args.seed), hint=name.replace("_", " "), use_llm=False)
+        scene = to_scene_json(result.model)
+        scene["validation"] = result.validation.to_dict()
+        scene["annotation_source"] = result.annotation.source
+        scene["description"] = obj.description
+        scenes.append(scene)
+        print(f"{name}: {'SIM-VALIDATED' if result.validation.passed else 'NEEDS REVIEW'}")
+    os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
+    with open(args.out, "w") as f:
+        f.write(render_gallery(scenes))
+    print(f"wrote {args.out}")
+    return 0
+
+
 def cmd_bench(args) -> int:
     from .benchmark import per_object_table, run_benchmark, summarize_table
 
@@ -120,6 +144,13 @@ def build_parser() -> argparse.ArgumentParser:
     v.add_argument("--hint")
     v.add_argument("--out", default="out/video")
     v.set_defaults(fn=cmd_video)
+
+    g = sub.add_parser("gallery", help="reconstruct several built-in objects into one interactive page")
+    g.add_argument("objects", nargs="*")
+    g.add_argument("--noise", type=float, default=1.0)
+    g.add_argument("--seed", type=int, default=0)
+    g.add_argument("--out", default="out/gallery.html")
+    g.set_defaults(fn=cmd_gallery)
 
     b = sub.add_parser("bench", help="run the synthetic benchmark")
     b.add_argument("--noise", nargs="+", default=["1", "3", "6"], help="noise levels in mm")

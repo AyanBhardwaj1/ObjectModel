@@ -80,6 +80,15 @@ class ArticulatedModel:
         return next(l for l in self.links if l.name not in childs)
 
 
+def _outward(est: JointEstimate, away: np.ndarray) -> JointEstimate:
+    """Orient slider axes away from the parent so positive values mean 'pull out'."""
+    from dataclasses import replace
+
+    if est.type != "prismatic" or float(np.dot(est.axis, away)) >= 0:
+        return est
+    return replace(est, axis=-est.axis, states=-est.states, lower=-est.upper, upper=-est.lower)
+
+
 def _joint_type(est: JointEstimate) -> str:
     if est.type == "revolute" and (est.upper - est.lower) > np.radians(350):
         return "continuous"
@@ -119,9 +128,10 @@ def build_model(
         # Root frame = capture world origin, so URDF and MJCF place every link identically.
         origin = np.zeros(3) if e is None else np.asarray(e.joint.origin, float)
         links.append(Link(names[i], i, origin, geom, physical_props(geom, mat, fill), pts))
+    centroids = {i: ts.points[0, seg.labels == i].mean(axis=0) for i in range(seg.n_parts)}
     joints = []
     for e in tree.edges:
-        est = e.joint
+        est = _outward(e.joint, centroids[e.child] - centroids[e.parent])
         joints.append(Joint(
             name=uniq(safe_name(joint_names.get(e.child, f"{names[e.child]}_joint"), "joint")),
             type=_joint_type(est), parent=names[e.parent], child=names[e.child],

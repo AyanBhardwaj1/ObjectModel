@@ -64,6 +64,7 @@ kitchen_cabinet: SIM-VALIDATED (replay 2.489 mm, unexplained 0.0 mm, noise σ 1.
 | `objectmodel fit tracks.npz` | 3D point tracks: `points` (T,N,3) metres, `visible` (T,N). Plug in any tracker + depth (CoTracker, SAM-mask tracks + metric depth). `--labels parts.npy` uses your own per-track part ids (e.g. from SAM masks) and skips segmentation. |
 | `objectmodel video clip.mp4 --scale-mm 304` | A video. Built-in LK tracking with forward-backward checks and automatic background removal. With `--depth depth.npy` (T,H,W metres) points are back-projected in 3D; without it, side-on (in-plane) motion with metric scale from a printed ArUco marker (`--marker-mm 50`) or one known dimension (`--scale-mm`). |
 | `objectmodel demo <object>` | Procedural objects with exact ground truth: `laptop`, `drawer_cabinet`, `desk_lamp` (serial chain), `kitchen_cabinet`, `faucet`, `dresser` (3 drawers + door), `fridge` (mirrored doors). |
+| `objectmodel gallery [objects…]` | Reconstruct several objects into one shareable interactive page (object picker, `#name` links). |
 | `objectmodel bench` | The benchmark below. |
 
 ### Outputs (per object)
@@ -119,8 +120,8 @@ By object (all noise levels):
 | dresser | 100% | 100% | 0.51 | 0.8 | 100% |
 | fridge | 100% | 100% | 0.04 | 1.0 | 100% |
 
-At 1 mm tracker noise every case is reconstructed with the right topology and joint types, a 0.2° mean
-axis error and a 0.3 mm mean pivot error; at 3 mm, 20 of 21 cases have the correct topology. Almost all failures
+At 1 mm tracker noise every case is reconstructed with the right topology and joint types, a 0.18° mean
+axis error and a 0.2 mm mean pivot error; at 3 mm, 20 of 21 cases have the correct topology. Almost all failures
 are the faucet's small lever, whose total motion (~13 mm) is close to the noise floor at 3–10 mm.
 Separating it would need a longer motion range.
 

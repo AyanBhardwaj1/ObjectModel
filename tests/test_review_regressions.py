@@ -161,3 +161,22 @@ def test_markdown_escaping_of_untrusted_notes():
     out = _md_escape("[click](http://evil) <img src=x> `code`")
     import re
     assert not re.search(r"(?<!\\)[\[\]()<>`]", out)  # every special char is backslash-escaped
+
+
+def test_slider_axes_point_away_from_parent():
+    res = run(s.generate_tracks(s.dresser(), seed=0), use_llm=False)
+    for j in res.model.joints:
+        if j.type == "prismatic":
+            parent = res.model.link(j.parent).points.mean(axis=0)
+            child = res.model.link(j.child).points.mean(axis=0)
+            assert np.dot(j.axis, child - parent) > 0
+
+
+def test_gallery_page_contains_every_scene():
+    from objectmodel.cli import main as cli_main
+    import tempfile, os
+    with tempfile.TemporaryDirectory() as d:
+        out = os.path.join(d, "g.html")
+        assert cli_main(["gallery", "laptop", "fridge", "--out", out]) == 0
+        html = open(out).read()
+        assert '"gallery"' in html and '"name": "laptop"' in html and '"name": "fridge"' in html
