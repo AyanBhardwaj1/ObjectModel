@@ -6,3 +6,4 @@ out/
 .playwright-cli/
 .ui-improve/
 .taste-skill/
+cpp/build/

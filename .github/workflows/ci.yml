@@ -16,6 +16,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
+      - name: Build the C++ core
+        run: |
+          sudo apt-get update && sudo apt-get install -y libeigen3-dev
+          cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release && cmake --build cpp/build
       - run: python -m pytest -q
+      - name: C++ parity and timing
+        run: python -m objectmodel.native
       - name: Benchmark smoke test
         run: python -m objectmodel bench --seeds 1 --noise 1
