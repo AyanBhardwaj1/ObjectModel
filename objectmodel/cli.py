@@ -116,6 +116,7 @@ def cmd_task(args) -> int:
         print(f"{c.object}/{c.joint:<12} {r.kind:<5} opened {r.opened_fraction:5.0%}  grasp peak {r.peak_force_n:6.1f} N "
               f"(oracle {c.oracle.peak_force_n:6.1f} N)  tracking {r.max_track_mm:5.1f} mm  axis error {c.axis_error_deg:4.1f}°  "
               f"{'OK' if c.success else 'FAIL'}")
+        print(f"  {'':<24} closest body part to the object (hand excluded): {r.min_clearance_mm:+.0f} mm ({r.clearance_body})")
         if args.demo:
             out = args.demo if len(cases) == 1 else args.demo.replace(".npz", f"_{c.joint}.npz")
             r.save_demo(out, object=c.object, part=c.joint, robot=args.robot, perturb_deg=args.perturb)

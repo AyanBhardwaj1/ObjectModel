@@ -151,3 +151,17 @@ def test_cli_plan_writes_json(tmp_path):
     out = tmp_path / "plan.json"
     assert main(["plan", "drawer_cabinet", "--out", str(out)]) == 0
     assert json.loads(out.read_text())["tasks"]
+
+
+def test_clearance_is_measured_and_excludes_the_hand():
+    (case,) = run_task("drawer_cabinet", oracle=False)
+    r = case.result
+    assert np.isfinite(r.min_clearance_mm) and r.clearance_body
+    assert r.min_clearance_mm > 0  # a straight pull: nothing but the hand comes near the cabinet
+    assert r.summary()["min_clearance_mm"] == pytest.approx(r.min_clearance_mm, abs=1e-3)
+
+
+@pytest.mark.skipif(menagerie_path() is None, reason="MuJoCo Menagerie (Apollo model) not installed")
+def test_apollo_idle_arm_stays_clear_of_the_object():
+    (case,) = run_task("kitchen_cabinet", joints=["drawer"], robot="apollo", oracle=False)
+    assert case.result.min_clearance_mm > 20  # held forward, the idle arm swung into the cabinet

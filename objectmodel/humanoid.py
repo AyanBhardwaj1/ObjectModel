@@ -294,11 +294,17 @@ class TaskResult:
     success: bool  # see judge(): grasped, opened >= 90 %, peak force <= FEASIBLE_FORCE_N
     grasped: bool = True
     grasp_gap_mm: float = 0.0  # hand-to-part distance when the hand tried to close
+    min_clearance_mm: float = float("inf")  # closest robot (hand excluded) came to the object; < 0 overlaps
+    clearance_body: str = ""  # the robot body at that closest approach
     frames: list = field(default_factory=list, repr=False)
     log: dict = field(default_factory=dict, repr=False)  # per-control-step demonstration data
 
     def summary(self) -> dict:
-        return {k: (round(v, 3) if isinstance(v, float) else v) for k, v in self.__dict__.items() if k not in ("frames", "log")}
+        def clean(v):
+            if isinstance(v, float):
+                return round(v, 3) if np.isfinite(v) else None  # JSON has no infinity
+            return v
+        return {k: clean(v) for k, v in self.__dict__.items() if k not in ("frames", "log")}
 
     def save_demo(self, path: str, **meta) -> None:
         """Write the run as a demonstration (one row per control step) for teleop/learning pipelines."""
@@ -354,6 +360,31 @@ def _distance_to_body(mujoco, m, d, body: int, p: np.ndarray) -> float:
         outside = np.maximum(np.abs(local) - half, 0.0)
         best = min(best, float(np.linalg.norm(outside)))
     return best
+
+
+def _clearance_pairs(mujoco, m, robot_root: int, site: int, part: int, robot) -> list[tuple[int, int]]:
+    """(robot geom, object geom) pairs for the clearance check: robot collision geoms minus the hand, and
+    every geom of the object (its whole body tree, found from the moving part) plus its stand."""
+    def ancestors(b):
+        out = []
+        while b > 0:
+            out.append(b)
+            b = m.body_parentid[b]
+        return out
+
+    hand = ancestors(m.site_bodyid[site])[: robot.hand_links]
+    obj_root = ancestors(part)[-1]  # the object's top body, directly under the world
+
+    def robot_geom(g):
+        b = m.geom_bodyid[g]
+        chain = ancestors(b)
+        if robot_root not in chain or any(h in chain for h in hand):
+            return False
+        return robot.collision_group is None or m.geom_group[g] == robot.collision_group
+
+    stand = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "stand")
+    obj = [g for g in range(m.ngeom) if obj_root in ancestors(m.geom_bodyid[g])] + ([stand] if stand >= 0 else [])
+    return [(gr, go) for gr in range(m.ngeom) if robot_geom(gr) for go in obj]
 
 
 def _smooth(s: float) -> float:
@@ -417,7 +448,7 @@ def execute(world_mjcf: str, world_child: str, world_joint: str, world_q: tuple[
     jid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_JOINT, world_joint)
     qadr = m.jnt_qposadr[jid]
     d.qpos[qadr] = world_q[0]
-    pose = robot.default_pose()
+    pose = robot.default_pose(side)
     for name, v in pose.items():
         j = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_JOINT, name)
         if j >= 0:
@@ -442,6 +473,8 @@ def execute(world_mjcf: str, world_child: str, world_joint: str, world_q: tuple[
     if missing:
         raise ValueError("scene is missing: " + ", ".join(missing))
     q_ref = d.qpos[arm_q].copy()
+    pairs = _clearance_pairs(mujoco, m, root, site, child, robot)
+    clearance, clear_body = float("inf"), -1
     ik = mujoco.MjData(m)  # kinematic copy: IK runs on the reference pose, the servos track it
 
     pre = handle_w + aff.normal * 0.12
@@ -513,6 +546,11 @@ def execute(world_mjcf: str, world_child: str, world_joint: str, world_q: tuple[
                 rec["target"].append(np.asarray(target, float).copy())
                 rec["object_q"].append(float(d.qpos[qadr]))
                 rec["grasp_force"].append(float(np.linalg.norm(d.efc_force[rows_])) if (len(rows_) and d.eq_active[eq]) else 0.0)
+            if (step // steps_per_ctrl) % 5 == 0:  # 20 Hz is plenty to catch an arm sweeping into the object
+                for gr, go in pairs:
+                    dist = mujoco.mj_geomDistance(m, d, gr, go, 0.5, None)
+                    if dist < clearance:
+                        clearance, clear_body = dist, m.geom_bodyid[gr]
             if ends[1] <= t < ends[3] and d.eq_active[eq]:
                 rows = np.flatnonzero(d.efc_type[: d.nefc] == mujoco.mjtConstraint.mjCNSTR_EQUALITY)
                 forces.append(float(np.linalg.norm(d.efc_force[rows])) if len(rows) else 0.0)
@@ -530,7 +568,9 @@ def execute(world_mjcf: str, world_child: str, world_joint: str, world_q: tuple[
     opened = (d.qpos[qadr] - world_q[0]) / span if span else 0.0
     peak = max(forces) if forces else 0.0
     res = TaskResult(twin_joint.name, aff.kind, float(opened), peak, float(np.mean(forces)) if forces else 0.0,
-                     1000 * max(tracks) if tracks else 0.0, False, grasped, 1000 * grasp_gap)
+                     1000 * max(tracks) if tracks else 0.0, False, grasped, 1000 * grasp_gap,
+                     min_clearance_mm=1000 * clearance if pairs else float("inf"),
+                     clearance_body=mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, clear_body) or "" if clear_body >= 0 else "")
     res.success = judge(res)
     res.frames = frames
     if rec is not None:

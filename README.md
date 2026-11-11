@@ -203,7 +203,8 @@ How it works:
 Limits:
 - No finger closure.
 - The pelvis is held fixed, with no squatting; low furniture sits on a stand for the standing robot.
-- No robot-object contact during the task.
+- No robot-object contact during the task; clearance is measured instead (`docs/clearance.md`). The working
+  wrist or forearm still cuts into swinging doors, because the IK controls hand position only.
 
 Details and role mapping: [`docs/APPTRONIK.md`](docs/APPTRONIK.md).
 ObjectModel is an independent project, not affiliated with Apptronik.

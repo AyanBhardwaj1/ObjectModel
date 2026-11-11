@@ -52,6 +52,8 @@ class Robot:
     shoulder_z = 0.0  # fixed shoulder height for robots that cannot adjust it
     comfort_reach = 0.45
     body_clearance = 0.15  # closest the shoulder may stand to the handle, horizontally
+    collision_group: int | None = None  # geom group holding collision shapes (None: every robot geom)
+    hand_links = 1  # links from the grip site upward that count as the hand (excluded from clearance)
 
     def ik_joints(self, side: str) -> list[str]:
         raise NotImplementedError
@@ -68,7 +70,8 @@ class Robot:
     def anchor(self, side: str) -> tuple[float, float, float]:
         raise NotImplementedError
 
-    def default_pose(self) -> dict[str, float]:
+    def default_pose(self, side: str | None = None) -> dict[str, float]:
+        """Starting joint values; `side` is the working arm, if the robot poses its arms differently."""
         return {}
 
     def compose(self, world_mjcf: str, base: np.ndarray, yaw: float, child: str, side: str) -> str:
@@ -93,7 +96,7 @@ class GenericHumanoid(Robot):
     def anchor(self, side: str) -> tuple[float, float, float]:
         return (0.0, 0.0, -0.09)
 
-    def default_pose(self) -> dict[str, float]:
+    def default_pose(self, side: str | None = None) -> dict[str, float]:
         from .humanoid import ARM_JOINTS
         return {f"{s}_{n}": dv for s in ("r", "l") for n, *_r, dv in ARM_JOINTS}
 
@@ -141,6 +144,8 @@ def menagerie_path() -> str | None:
 
 class ApolloHumanoid(Robot):
     name = "apollo"
+    collision_group = 3  # Menagerie: group 3 holds the collision primitives, group 1 the visual meshes
+    hand_links = 3  # the palm (wrist pitch link) and the wrist yaw and roll links, all at the wrist
     root_body = "base_link"
     reach_ki = 0.06  # the Menagerie model has realistic joint friction (frictionloss up to 13 N·m)
     adjustable_height = False
@@ -170,10 +175,13 @@ class ApolloHumanoid(Robot):
     def anchor(self, side: str) -> tuple[float, float, float]:
         return APOLLO_PALM[side]
 
-    def default_pose(self) -> dict[str, float]:
+    def default_pose(self, side: str | None = None) -> dict[str, float]:
+        """The model's stand keyframe, with the working arm forward and bent, ready to reach. The idle arm
+        stays at the side: held forward, it swings into the object when the torso turns toward the task."""
         pose = dict(APOLLO_STAND)
-        for s, sign in (("r", -1), ("l", 1)):  # arms forward and bent, ready to reach
-            pose.update({f"{s}_shoulder_fe": -0.6, f"{s}_elbow_fe": -1.1, f"{s}_shoulder_aa": 0.12 * sign})
+        for s, sign in (("r", -1), ("l", 1)):
+            if side is None or s == side:
+                pose.update({f"{s}_shoulder_fe": -0.6, f"{s}_elbow_fe": -1.1, f"{s}_shoulder_aa": 0.12 * sign})
         return pose
 
     def compose(self, world_mjcf: str, base: np.ndarray, yaw: float, child: str, side: str) -> str:

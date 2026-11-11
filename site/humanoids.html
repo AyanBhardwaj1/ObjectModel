@@ -93,7 +93,7 @@ objectmodel plan kitchen_cabinet --out plan.json <span class="c"># the plan as J
 bash scripts/fetch_menagerie.sh                  <span class="c"># public Apollo model, Apache-2.0</span>
 MUJOCO_GL=egl objectmodel task fridge --robot apollo --video fridge.mp4</code></pre>
       </div>
-      <p class="small muted">The Apollo model is Google DeepMind's MuJoCo Menagerie <code translate="no">apptronik_apollo</code>, released under Apache-2.0. ObjectModel is an independent project and is not affiliated with or endorsed by Apptronik. Limits: the grasp is a contact constraint rather than finger closure, the pelvis is held at its standing pose, and the robot does not collide with the object during the task.</p>
+      <p class="small muted">The Apollo model is Google DeepMind's MuJoCo Menagerie <code translate="no">apptronik_apollo</code>, released under Apache-2.0. ObjectModel is an independent project and is not affiliated with or endorsed by Apptronik. Limits: the grasp is a contact constraint rather than finger closure, the pelvis is held at its standing pose, and robot–object contacts are off. The run measures clearance instead: the body keeps clear, but the working wrist still cuts into swinging doors because the IK controls hand position, not orientation.</p>
     </div>
   </section>
 </main>
