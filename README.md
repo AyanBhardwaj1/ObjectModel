@@ -1,1 +1,164 @@
 # ObjectModel
+
+**Turn a capture of a real articulated object — a laptop, a cabinet, a desk lamp, a faucet — into a
+simulation-ready digital twin (URDF + MJCF) that has been *proven* in a physics simulator.**
+
+```
+video / RGB-D / point tracks
+        │
+        ▼
+ rigid-motion segmentation ──► per-part 6-DoF poses ──► joint fitting (fixed / prismatic / revolute, BIC)
+        │                                                     │  + bootstrap uncertainty per joint
+        ▼                                                     ▼
+ kinematic tree (chains & branches) ──► physical properties (OBB, material, mass, inertia)
+        │
+        ▼
+ semantic agent (any OpenAI-compatible LLM, or offline rules) — names parts, picks materials
+        │
+        ▼
+ URDF + MJCF + JSON ──► MuJoCo validation: compile → kinematic replay vs. observations → stability
+        │
+        ▼
+ report.md + interactive viewer.html (joint sliders, replay, confidence-coloured axes)
+```
+
+![Interactive viewer: kitchen cabinet with the door swung open on its estimated hinge](docs/viewer.png)
+
+## Why it's different
+
+Most "photo/video → URDF" tools ask a language model to *guess* joint numbers and then trust a
+vision-language critic to say it looks right. ObjectModel splits the job the other way round:
+
+| | Typical approach | ObjectModel |
+|---|---|---|
+| Joint type, axis, pivot, limits | LLM/VLM guesses | **Measured** in closed form from tracked motion (screw-axis fitting, Kabsch, BIC model selection) |
+| Number of parts / structure | usually 1 joint, 2 parts | **Any tree**: serial chains (lamp), branches (cabinet with door + drawer) |
+| Trust | none, or "critic says OK" | **Per-joint confidence** (type posterior) and **uncertainty** (axis ±°, pivot ±mm via bootstrap) |
+| Validation | visual check | **MuJoCo-in-the-loop**: compiles the exported MJCF, drives it with the measured joint states, compares every simulated surface point with the observations, and separates model error from measurement noise |
+| Physics | missing / identity inertia | Min-volume boxes, material densities, mass and positive-definite inertia; MJCF in radians with limits |
+| LLM | required | Optional, any OpenAI-compatible endpoint (Llama API, vLLM, Ollama…); output is schema-validated, clamped and sanitised; offline rules otherwise |
+| Evaluation | demo videos | **Built-in benchmark** with ground truth and standard articulation metrics |
+| Integration | script | CLI, Python API, **MCP server** for agents |
+
+## Quick start
+
+```bash
+pip install -e ".[dev]"          # numpy, mujoco, opencv, pytest
+
+objectmodel demo kitchen_cabinet --out out/cabinet
+open out/cabinet/viewer.html     # drag the joint sliders, press "Replay capture"
+```
+
+```
+kitchen_cabinet: SIM-VALIDATED (replay 2.489 mm, unexplained 0.0 mm, noise σ 1.039 mm, stable=True)
+  door_hinge             revolute   body -> door  conf=1.000  axis=(+0.00, -0.00, +1.00) ±0.01°
+  drawer_slide           prismatic  body -> drawer  conf=1.000  axis=(-0.00, -1.00, +0.00) ±0.07°
+  wrote: out/cabinet/kitchen_cabinet.urdf, out/cabinet/kitchen_cabinet.xml, out/cabinet/model.json, ...
+```
+
+### Inputs
+
+| Command | Input |
+|---|---|
+| `objectmodel fit tracks.npz` | 3D point tracks: `points` (T,N,3) metres, `visible` (T,N). Plug in any tracker + depth (CoTracker, SAM-mask tracks + metric depth). `--labels parts.npy` uses your own per-track part ids (e.g. from SAM masks) and skips segmentation. |
+| `objectmodel video clip.mp4 --scale-mm 304` | A video. Built-in LK tracking with forward-backward checks and automatic background removal. With `--depth depth.npy` (T,H,W metres) points are back-projected in 3D; without it, side-on (in-plane) motion with metric scale from one known dimension. |
+| `objectmodel demo <object>` | Procedural objects with exact ground truth: `laptop`, `drawer_cabinet`, `desk_lamp`, `kitchen_cabinet`, `faucet`. |
+| `objectmodel bench` | The benchmark below. |
+
+### Outputs (per object)
+
+`<name>.urdf`, `<name>.xml` (MJCF), `model.json`, `report.md`, `viewer.html` (self-contained).
+
+### Semantic agent (optional LLM)
+
+```bash
+export OBJECTMODEL_LLM_BASE_URL=https://api.llama.com/compat/v1   # any OpenAI-compatible endpoint
+export OBJECTMODEL_LLM_API_KEY=...
+export OBJECTMODEL_LLM_MODEL=...
+```
+
+The model only receives the *measured* structure (part sizes, joint types and axes) and returns names,
+materials and fill fractions. Geometry is never taken from it. Invalid ids, unknown materials and
+out-of-range numbers are dropped; network or parse failures fall back to geometric rules, and the
+report says so. `--no-llm` forces offline mode.
+
+### MCP server (for agents)
+
+```json
+{"mcpServers": {"objectmodel": {"command": "python", "args": ["-m", "objectmodel.mcp_server"],
+                                 "env": {"OBJECTMODEL_ROOT": "/path/to/workdir"}}}}
+```
+
+Tools: `list_demo_objects`, `reconstruct_demo`, `reconstruct_tracks`, `reconstruct_video`. File paths are
+confined to `OBJECTMODEL_ROOT`.
+
+## Benchmark
+
+`objectmodel bench --seeds 3 --noise 1 3 6 10` — 5 objects × 3 seeds × 4 noise levels, 5 % per-frame
+track dropout. Axis error is the angle between estimated and true axes; pivot error is the distance from
+the estimated pivot to the true hinge line; "unexplained replay" is the MuJoCo replay error left after
+removing the expected contribution of measurement noise (√6·σ).
+
+| noise | topology | joint type | axis err ° | pivot err mm | state err | unexplained replay mm | sim pass | s/object |
+|---|---|---|---|---|---|---|---|---|
+| 1 mm | 100% | 100% | 0.22 | 0.3 | 0.0020 | 0.06 | 100% | 1.1 |
+| 3 mm | 93% | 97% | 0.90 | 1.3 | 0.0063 | 1.19 | 100% | 1.1 |
+| 6 mm | 80% | 90% | 1.75 | 1.9 | 0.0120 | 2.95 | 100% | 1.1 |
+| 10 mm | 80% | 87% | 2.02 | 4.9 | 0.0239 | 7.04 | 73% | 1.0 |
+
+By object (all noise levels):
+
+| object | topology | joint type | axis err ° | pivot err mm | sim pass |
+|---|---|---|---|---|---|
+| laptop | 100% | 100% | 0.63 | 1.6 | 100% |
+| drawer_cabinet | 100% | 100% | 0.57 | nan | 92% |
+| desk_lamp | 100% | 100% | 1.75 | 2.4 | 92% |
+| kitchen_cabinet | 100% | 100% | 0.32 | 0.7 | 100% |
+| faucet | 42% | 67% | 2.91 | 3.6 | 83% |
+
+At 1 mm tracker noise every case is reconstructed with the right topology and joint types, a 0.2° mean
+axis error and a 0.3 mm mean pivot error; at 3 mm, 14 of 15 cases are fully correct. Almost all failures
+are the faucet's small lever, whose total motion (~13 mm) is close to the noise floor at 3–10 mm.
+Separating it would need a longer motion range.
+
+## How it works
+
+1. **Segmentation.** Sequential RANSAC over rigid-motion hypotheses: a spatially local seed set is fitted
+   frame-by-frame with visibility-weighted Kabsch, every track is scored by its ~90th-percentile residual
+   over time, and the largest consensus set becomes a part. The tolerance adapts to the measured noise
+   (σ from second temporal differences) and relaxes progressively for leftover tracks, because real
+   trackers drift more on fast-moving parts.
+2. **Joints.** For child poses relative to the parent, `M_t = P_t⁻¹ ∘ C_t`:
+   *revolute*: axis = null vector of stacked `(R_t − I)`, pivot from least squares on `(I − R_t)p = t_t`,
+   angle `θ_t = atan2(½ uᵀ vee(R−Rᵀ), (tr R − 1)/2)`; *prismatic*: top singular vector of the
+   translations; *fixed*: identity. BIC with a noise-floor variance picks the model, and the posterior
+   is reported as confidence. A frame bootstrap gives axis/pivot uncertainty.
+3. **Tree.** The least-moving part is the root; parts are attached Prim-style by the lowest joint
+   residual plus a contact-gap penalty. The composition of two hinges is not a single hinge, so serial
+   chains are recovered correctly.
+4. **Physics.** Minimum-volume oriented boxes (world, PCA and yaw-swept candidates), a density table,
+   fill fractions for hollow parts, and box inertia (always satisfies the triangle inequality).
+5. **Validation.** The MJCF is compiled by MuJoCo and driven with the measured joint states
+   (`mj_kinematics`). Every simulated surface point is compared with its observed track. Static
+   checks cover mass, inertia and limits; a 2 s passive simulation checks stability. A model is
+   **SIM-VALIDATED** only if all of these pass.
+
+## Development
+
+```bash
+python -m pytest -q        # 60+ tests: math, estimation accuracy, export, validation, agent, video, MCP
+```
+
+The research behind the design is in [`reports/`](reports/) with notes in [`research_notes/`](research_notes/).
+
+## Limitations and roadmap
+
+- Box collision geometry only; per-part meshes (convex decomposition) are next.
+- Damping and friction can't be identified from kinematics alone and are defaults.
+- The built-in video path handles in-plane motion or needs a depth stack. For hand-held monocular
+  video, feed tracks from a 3D tracker + metric depth model through `objectmodel fit`.
+- Planned: screw (helical) joints, ArUco/AprilTag scale, USD export, PartNet-Mobility benchmark import.
+
+## License
+
+MIT
