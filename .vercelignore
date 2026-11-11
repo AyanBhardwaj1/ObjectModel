@@ -1,0 +1,10 @@
+out
+tests
+docs
+reports
+research_notes
+site
+scripts
+.github
+pyproject.toml
+*.md

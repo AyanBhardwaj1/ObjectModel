@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ObjectModel + Twin-to-Task: one-page brief</title>
+<style>
+  @page { size: Letter; margin: 0.45in; }
+  :root { --bone: #ecebe7; --surface: #e1dfd9; --olive: #38450f; --muted: #5d683a; --ok: #3d6b1f; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 10pt/1.42 "Inter", "Helvetica Neue", Arial, sans-serif; color: var(--olive); background: #fff; }
+  h1, h2, h3 { font-family: "Space Grotesk", "Helvetica Neue", Arial, sans-serif; margin: 0; letter-spacing: -0.02em; }
+  h1 { font-size: 22pt; line-height: 1.05; }
+  h2 { font-size: 12pt; margin-bottom: 6px; }
+  p { margin: 0; }
+  .top { display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; align-items: center; }
+  .top img { width: 100%; border-top-right-radius: 60px; display: block; }
+  .lede { margin-top: 8px; font-size: 10.5pt; }
+  .tag { margin-top: 8px; font-size: 8.5pt; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+  .box { background: var(--bone); padding: 12px 14px; border-top-right-radius: 22px; }
+  table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid #cfccc2; }
+  th { color: var(--muted); font-weight: 600; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .ok { color: var(--ok); font-weight: 600; }
+  ul { margin: 0; padding-left: 14px; }
+  li { margin: 2px 0; }
+  .roles td:first-child { font-weight: 600; white-space: nowrap; }
+  code { font-family: "SFMono-Regular", Menlo, Consolas, monospace; font-size: 8.5pt; }
+  .foot { margin-top: 12px; font-size: 8pt; color: var(--muted); }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <h1>Capture a cabinet's motion. Get its URDF.<br>Then a humanoid opens it.</h1>
+      <p class="lede"><b>ObjectModel</b> turns a capture of an articulated object into a measured, MuJoCo-validated digital twin. <b>Twin-to-Task</b> hands that twin to a humanoid, either the public Apollo model or a generic upper body. The humanoid opens the object in a simulation of its <i>ground truth</i>, so the simulator scores whether the twin is good enough to act on.</p>
+      <p class="tag">Independent student project · not affiliated with Apptronik · Apollo model: Google DeepMind MuJoCo Menagerie (Apache-2.0)</p>
+    </div>
+    <img src="../web/img/tasks/apollo-fridge-left-door.jpg" alt="Apollo model opening a fridge door">
+  </div>
+
+  <div class="grid">
+    <div class="box">
+      <h2>Twin accuracy vs humanoid effort</h2>
+      <table>
+        <thead><tr><th>Twin used to plan</th><th class="n">Stiff arm</th><th class="n">Extra force</th><th class="n">Apollo</th><th class="n">Extra path</th></tr></thead>
+        <tbody>
+          <tr><td>ObjectModel twin</td><td class="n ok">100%</td><td class="n">0 N</td><td class="n ok">100%</td><td class="n">0 mm</td></tr>
+          <tr><td>+2° axis error</td><td class="n">0%</td><td class="n">19 N</td><td class="n ok">100%</td><td class="n">−1 mm</td></tr>
+          <tr><td>+5°</td><td class="n">0%</td><td class="n">50 N</td><td class="n ok">100%</td><td class="n">4 mm</td></tr>
+          <tr><td>+10°</td><td class="n">0%</td><td class="n">79 N</td><td class="n">80%</td><td class="n">22 mm</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:6px;font-size:8.5pt">Doors, drawers and lids on 5 objects, each judged against the same task planned with the true joint (7 feasible on the stiff arm, 10 on Apollo). A stiff arm shows a bad twin as force; Apollo's compliant arm shows it as path error. Twins average 0.18° of axis error at 1&nbsp;mm tracking noise; the stiff arm starts failing between 0.5° and 1°. Synthetic captures.</p>
+    </div>
+    <div class="box">
+      <h2>Under the hood</h2>
+      <ul>
+        <li>RANSAC rigid segmentation; joint type chosen by BIC; screw-axis fits with bootstrap uncertainty</li>
+        <li>Kinematic trees for chains and branches; mass and inertia; URDF and MJCF exports that agree to 0.00&nbsp;mm</li>
+        <li>MuJoCo checks: replay vs capture, collision sweep, stability</li>
+        <li>Humanoid: affordances, a stance search over the handle arc, DLS IK on the reference pose (torso and 7-DoF arm on Apollo)</li>
+        <li>C++/Eigen core that matches NumPy to 1e-16: revolute fit about 30× faster, 0.16&nbsp;µs per DLS solve</li>
+        <li>CLI, REST API, MCP server for AI agents, web playground, CI, 142 tests</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="box" style="margin-top:14px">
+    <h2>Where it meets the roles in Apptronik's public postings</h2>
+    <table class="roles">
+      <tbody>
+        <tr><td>Developer experience</td><td>CLI, MCP server for AI coding agents, hosted API, CI, a dev server that mirrors production</td></tr>
+        <tr><td>Real-time controls</td><td>Frames and quaternions, DLS IK with nullspace posture, servo tracking under load, a C++ core with a sub-µs DLS solve</td></tr>
+        <tr><td>Motion planning</td><td>Upper-body IK on the Apollo model, stance planning, constraint-force metrics</td></tr>
+        <tr><td>Simulation and sim-to-real</td><td>Simulator-in-the-loop validation, parameter estimation from motion, noise and camera-sway sweeps, a clearance check that caught an idle-arm collision</td></tr>
+        <tr><td>Autonomy and perception</td><td>Perceive → model → plan → act → verify loop; LK tracking, depth lifting, ArUco scale. ROS 2 node is the next step.</td></tr>
+        <tr><td>Fleet and full-stack</td><td>Validated Python serverless API, a static web app with live 3D, deploy config</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="foot">Run it: <code>objectmodel task kitchen_cabinet</code> · <code>objectmodel task-bench</code> · <code>objectmodel task fridge --robot apollo --video fridge.mp4</code> · Code: github.com/ayanbhardwaj1/objectmodel · Limits: contact-constraint grasp, pelvis held at stand, synthetic captures.</p>
+</body>
+</html>

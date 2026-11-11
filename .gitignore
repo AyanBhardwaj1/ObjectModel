@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+out/
+*.egg-info/
+.playwright-cli/
+.ui-improve/
+.taste-skill/
+cpp/build/

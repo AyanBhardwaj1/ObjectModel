@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Humanoids · ObjectModel</title>
+<meta name="description" content="A humanoid opens doors and drawers planned only from ObjectModel&#x27;s measured twin, then the simulator checks the real object moved as planned.">
+<meta property="og:title" content="Humanoids · ObjectModel">
+<meta property="og:description" content="A humanoid opens doors and drawers planned only from ObjectModel&#x27;s measured twin, then the simulator checks the real object moved as planned.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://objectmodel.vercel.app/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#ecebe7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171a10" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://objectmodel.vercel.app/humanoids">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<link rel="stylesheet" href="/assets/site.css">
+<script src="/assets/site.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="ObjectModel home"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 28V4a24 24 0 0 1 24 24z"/></svg><span translate="no">ObjectModel</span></a>
+    <nav class="nav" aria-label="Main">
+      <a href="/playground">Playground</a><a href="/humanoids" aria-current="page">Humanoids</a><a href="/gallery" class="wide">Gallery</a><a href="/docs">Docs</a><a href="/#benchmark" class="wide">Benchmark</a><a href="https://github.com/ayanbhardwaj1/objectmodel" class="wide">GitHub</a>
+      <button class="theme-btn" type="button" data-theme-toggle aria-label="Switch between light and dark"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="2" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2 18V2a16 16 0 0 1 16 16z" fill="currentColor"/></svg></button>
+    </nav>
+  </div>
+</header>
+<main id="main">
+  <section class="section-tight" aria-labelledby="h-title">
+    <div class="wrap">
+      <h1 id="h-title" class="rise hum-title">Plan from the twin. Open the real thing.</h1>
+    </div>
+    <div class="wrap hum-hero">
+      <div class="hum-copy">
+        <p class="rise" style="--i:1">A humanoid gets only the measured twin: where the handle is, which way the part moves and how far. It plans its stance and reach from that, then opens the object in a separate MuJoCo world built from the object's ground truth. If the twin were wrong, the arm would be fighting the hinge, and the grasp force would show it.</p>
+        <ul class="pivot-list rise" style="--i:2">
+          <li>Measured twin: every feasible door, drawer and lid opens within 6&nbsp;N of the force a plan with the true joint needs.</li>
+          <li>Stiff generic arm: a 2° axis error already makes every task fight the joint.</li>
+          <li>Compliant Apollo model: tolerates 5°, then starts to miss handles and drift off the path.</li>
+        </ul>
+      </div>
+      <figure class="hum-video shutter">
+        <button type="button" class="pause tile-pause" data-pause aria-pressed="false" aria-label="Pause the Apollo fridge clip">Pause</button>
+        <video src="/img/tasks/apollo-fridge-left-door.mp4" poster="/img/tasks/apollo-fridge-left-door.jpg" autoplay muted loop playsinline width="960" height="540" aria-label="The Apollo humanoid model swings a fridge door open with its left hand"></video>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section-tight hum-band" aria-labelledby="acc-title">
+    <div class="wrap hum-acc">
+      <div class="hum-acc-text">
+        <h2 id="acc-title">How accurate is accurate enough?</h2>
+        <p>Every first-level door, drawer and lid on five objects. Each row plans from ObjectModel's twin, plus a deliberate axis error, and is judged against the same task planned with the true joint. A stiff arm shows a bad twin as extra grasp force; Apollo's compliant arm absorbs it and shows it as hand-path deviation instead.</p>
+        <p>On the stiff arm every degree of axis error costs about 9&nbsp;N of extra grasp force: all tasks pass at 0.5°, about half fail at 1°. ObjectModel's twins average 0.18° of axis error at 1&nbsp;mm tracking noise. Three wide doors are beyond the stiff arm even with the true joint, so they are reported as infeasible rather than counted; at 10° and above, the force figures come from the two tasks that still grasp.</p>
+      </div>
+      <div class="table-wrap stack-table">
+        <table>
+          <caption class="sr-only">Task success by twin axis error on the generic arm (7 feasible tasks) and the Apollo model (10 tasks)</caption>
+          <thead><tr><th scope="col">Twin</th><th scope="col" class="n">Stiff arm</th><th scope="col" class="n">Extra force</th><th scope="col" class="n">Apollo</th><th scope="col" class="n">Extra path</th></tr></thead>
+          <tbody>
+            <tr><td data-label="Twin">Measured twin</td><td class="n pass" data-label="Stiff arm">100%</td><td class="n" data-label="Extra force">0&nbsp;N</td><td class="n pass" data-label="Apollo">100%</td><td class="n" data-label="Extra path">0&nbsp;mm</td></tr>
+            <tr><td data-label="Twin">Twin + 1°</td><td class="n" data-label="Stiff arm">57%</td><td class="n" data-label="Extra force">9&nbsp;N</td><td class="n pass" data-label="Apollo">100%</td><td class="n" data-label="Extra path">0&nbsp;mm</td></tr>
+            <tr><td data-label="Twin">Twin + 2°</td><td class="n" data-label="Stiff arm">0%</td><td class="n" data-label="Extra force">19&nbsp;N</td><td class="n pass" data-label="Apollo">100%</td><td class="n" data-label="Extra path">−1&nbsp;mm</td></tr>
+            <tr><td data-label="Twin">Twin + 5°</td><td class="n" data-label="Stiff arm">0%</td><td class="n" data-label="Extra force">50&nbsp;N</td><td class="n pass" data-label="Apollo">100%</td><td class="n" data-label="Extra path">4&nbsp;mm</td></tr>
+            <tr><td data-label="Twin">Twin + 10°</td><td class="n" data-label="Stiff arm">0%</td><td class="n" data-label="Extra force">79&nbsp;N</td><td class="n" data-label="Apollo">80%</td><td class="n" data-label="Extra path">22&nbsp;mm</td></tr>
+            <tr><td data-label="Twin">Twin + 15°</td><td class="n" data-label="Stiff arm">0%</td><td class="n" data-label="Extra force">125&nbsp;N</td><td class="n" data-label="Apollo">60%</td><td class="n" data-label="Extra path">42&nbsp;mm</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="steps-title">
+    <div class="wrap">
+      <h2 id="steps-title" class="rise" style="max-width:12em;margin-bottom:48px">Find the handle, stand right, follow the joint</h2>
+      <div class="hum-steps">
+        <figure class="rise">
+          <div class="tile"><video src="/img/tasks/generic-kitchen-cabinet-door.mp4" poster="/img/tasks/generic-kitchen-cabinet-door.jpg" muted loop playsinline autoplay width="960" height="540" aria-label="A generic humanoid swings a cabinet door open"></video></div>
+          <figcaption><h3>Swing a door</h3><p>The twin's hinge gives the handle's arc. The robot grid-searches where to stand so the whole arc stays at a comfortable reach and never sweeps through its torso.</p></figcaption>
+        </figure>
+        <figure class="rise" style="--i:1">
+          <div class="tile"><video src="/img/tasks/generic-dresser-drawer1.mp4" poster="/img/tasks/generic-dresser-drawer1.jpg" muted loop playsinline autoplay width="960" height="540" aria-label="A generic humanoid pulls a dresser drawer straight out"></video></div>
+          <figcaption><h3>Pull a drawer</h3><p>For a slide it stands square to the face and pulls along the measured direction: 7&nbsp;mm tracking error, 30&nbsp;N peak. The hand only closes within 3&nbsp;cm of the real drawer front, so a twin that misplaces the handle misses.</p></figcaption>
+        </figure>
+        <figure class="rise" style="--i:2">
+          <div class="tile"><video src="/img/tasks/apollo-kitchen-cabinet-drawer.mp4" poster="/img/tasks/apollo-kitchen-cabinet-drawer.jpg" muted loop playsinline autoplay width="960" height="540" aria-label="The Apollo humanoid model pulls a cabinet drawer open"></video></div>
+          <figcaption><h3>Use the whole upper body</h3><p>On Apollo the reach uses torso yaw and pitch as well as the 7-DoF arm, through the model's own position actuators.</p></figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="section hum-band" aria-labelledby="plan-title">
+    <div class="wrap hum-plan" data-plan-map>
+      <div class="hum-plan-text">
+        <h2 id="plan-title">What the twin hands the robot</h2>
+        <p>Each part gets a plan built from the twin alone: the handle, which way to approach, where to stand, which arm, and the handle's path as the joint opens. <code translate="no">objectmodel plan</code> exports it as JSON, so a teleop, learning or ROS&nbsp;2 stack can use the same plan.</p>
+        <div class="fragment-tabs pm-tabs" role="tablist" aria-label="Part to plan" data-plan-tabs></div>
+        <dl class="pm-readout" data-plan-readout></dl>
+        <p class="small muted">Seen from above, on 10&nbsp;cm squares. Dashed outline: the part closed. The part swings or slides along the twin's own joint, the handle riding on it. Plans for the Apollo model; <a href="/plans/plans.json">all ten as JSON</a>.</p>
+      </div>
+      <figure class="pm-figure">
+        <button type="button" class="pause tile-pause" data-plan-pause aria-pressed="false" aria-label="Pause the plan animation">Pause</button>
+        <svg class="pm-svg" role="img" aria-label="Top-down plan: the object, the handle path along the joint, the approach direction and where the robot stands"></svg>
+      </figure>
+      <pre class="pm-json"><code data-plan-json></code></pre>
+    </div>
+  </section>
+
+  <section class="section-tight" aria-labelledby="run-title">
+    <div class="wrap hum-run">
+      <h2 id="run-title">Run it</h2>
+      <div class="code">
+<pre><code>objectmodel task kitchen_cabinet                 <span class="c"># generic humanoid, door and drawer</span>
+objectmodel task kitchen_cabinet --perturb 10    <span class="c"># the same plan from a twin 10° off</span>
+objectmodel task-bench                           <span class="c"># the accuracy table above</span>
+objectmodel plan kitchen_cabinet --out plan.json <span class="c"># the plan as JSON, for another stack</span>
+bash scripts/fetch_menagerie.sh                  <span class="c"># public Apollo model, Apache-2.0</span>
+MUJOCO_GL=egl objectmodel task fridge --robot apollo --video fridge.mp4</code></pre>
+      </div>
+      <p class="small muted">The Apollo model is Google DeepMind's MuJoCo Menagerie <code translate="no">apptronik_apollo</code>, released under Apache-2.0. ObjectModel is an independent project and is not affiliated with or endorsed by Apptronik. Limits: the grasp is a contact constraint rather than finger closure, the pelvis is held at its standing pose, and robot–object contacts are off. The run measures clearance instead: the rest of the body keeps clear, but the working forearm still cuts into the part, most of all on swinging doors, because the IK controls hand position, not orientation.</p>
+    </div>
+  </section>
+</main>
+<style>
+.hum-title { font-size: var(--t-display); max-width: 11em; margin-bottom: clamp(32px, 4vw, 56px); }
+.hum-hero { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: clamp(28px, 4vw, 64px); align-items: start; }
+.hum-copy { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.hum-copy p { max-width: 42ch; }
+.hum-video { position: relative; margin: 0; background: var(--surface); border-top-right-radius: var(--swing); }
+.hum-video video { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-top-right-radius: var(--swing); }
+.hum-band { background: var(--surface); }
+.hum-acc { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(28px, 4vw, 64px); align-items: start; }
+.hum-acc-text { display: flex; flex-direction: column; gap: 18px; }
+.hum-acc-text p { max-width: 60ch; }
+.hum-acc .table-wrap { margin-top: 0; background: var(--bg); }
+.hum-acc td:first-child { white-space: nowrap; }
+.hum-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.hum-steps figure { margin: 0; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.hum-steps .tile { aspect-ratio: 16 / 10; background: var(--surface); }
+.hum-steps figcaption { display: flex; flex-direction: column; gap: 6px; }
+.hum-steps figcaption h3 { font-size: var(--t-statement); }
+.hum-plan { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 32px clamp(28px, 4vw, 64px); align-items: start; }
+.hum-plan-text { display: flex; flex-direction: column; gap: 20px; }
+.hum-plan-text > p { max-width: 58ch; }
+.pm-tabs { gap: 2px; }
+.pm-readout { display: grid; grid-template-columns: max-content 1fr; gap: 6px 20px; margin: 0; font-size: var(--t-small); }
+.pm-readout dt { color: var(--muted); }
+.pm-readout dd { margin: 0; font-variant-numeric: tabular-nums; }
+.pm-figure { position: relative; margin: 0; background: var(--bg); border-top-right-radius: var(--swing-img); overflow: hidden; }
+.pm-figure .tile-pause { position: absolute; top: 12px; left: 12px; z-index: 1; }
+.pm-svg { display: block; width: 100%; height: auto; aspect-ratio: 1; }
+.pm-grid line { stroke: var(--line); }
+.pm-body { fill: var(--sunken); }
+.pm-closed { fill: none; stroke: var(--muted); }
+.pm-part { fill: color-mix(in srgb, var(--accent) 22%, transparent); stroke: var(--accent); stroke-linejoin: round; }
+.pm-path { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; }
+.pm-way { fill: var(--accent); }
+.pm-hinge { fill: var(--bg); stroke: var(--ink); }
+.pm-approach { stroke: var(--ink); }
+.pm-robot ellipse { fill: var(--surface); stroke: var(--muted); stroke-width: .006; }
+.pm-head { fill: var(--sunken); }
+.pm-face { fill: var(--muted); }
+.pm-reach { stroke: var(--muted); }
+.pm-shoulder { fill: var(--ink); }
+.pm-handle { fill: var(--ink); stroke: var(--bg); stroke-width: .006; }
+.pm-label { fill: var(--muted); font-family: var(--font-body); }
+.pm-json { grid-column: 1 / -1; margin: 0; background: var(--code-bg); color: var(--code-ink); padding: 18px 20px; font-size: 13px; line-height: 1.5; overflow-x: auto; max-height: 360px; }
+.hum-run { display: flex; flex-direction: column; gap: 24px; }
+.hum-run .small { max-width: 65ch; }
+@media (max-width: 900px) { .hum-title { font-size: 10vw; } .hum-hero, .hum-acc, .hum-plan { grid-template-columns: 1fr; } .hum-steps { grid-template-columns: 1fr; } .hum-video, .hum-video video { border-top-right-radius: 72px; } }
+</style>
+<script>
+document.querySelectorAll('[data-pause]').forEach((b) => {
+  const v = b.parentElement.querySelector('video');
+  const set = (paused) => { if (paused) v.pause(); else v.play().catch(() => { b.textContent = 'Play'; }); b.textContent = paused ? 'Play' : 'Pause'; b.setAttribute('aria-pressed', String(paused)); };
+  b.addEventListener('click', () => set(!v.paused));
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { set(true); document.querySelectorAll('video').forEach((x) => x.pause()); }
+});
+</script>
+<script src="/assets/plan-map.js" defer></script>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="blocks" aria-hidden="true"><span style="height:100%">O</span><span style="height:74%">b</span><span style="height:86%">j</span><span style="height:64%">e</span><span style="height:92%">c</span><span style="height:70%">t</span><span style="height:100%">M</span><span style="height:80%">o</span><span style="height:66%">d</span><span style="height:88%">e</span><span style="height:76%">l</span></div>
+    <div class="foot-grid">
+      <nav aria-label="Product"><b>Product</b><a href="/playground">Playground</a><a href="/humanoids">Humanoids</a><a href="/gallery">Gallery</a><a href="/#benchmark">Benchmark</a></nav>
+      <nav aria-label="Documentation"><b>Docs</b><a href="/docs#install">Install</a><a href="/docs#rest">REST API</a><a href="/docs#mcp">MCP server</a></nav>
+      <nav aria-label="Project"><b>Project</b><a href="https://github.com/ayanbhardwaj1/objectmodel">Source code</a><a href="https://github.com/ayanbhardwaj1/objectmodel/blob/main/LICENSE">MIT licence</a><a href="/api/reconstruct">API status</a></nav>
+      <div class="reach">
+        <span>Install from source</span>
+        <code translate="no">pip install "objectmodel[sim] @ git+https://github.com/ayanbhardwaj1/objectmodel"</code>
+        <span>Call the API</span>
+        <code translate="no">POST https://objectmodel.vercel.app/api/reconstruct</code>
+      </div>
+    </div>
+    <div class="foot-last"><span>ObjectModel, measured not guessed. MIT licensed.</span><a class="btn btn-sm" href="/playground">Open the playground</a></div>
+  </div>
+</footer>
+</body>
+</html>

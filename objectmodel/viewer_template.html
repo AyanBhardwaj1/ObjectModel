@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ObjectModel Viewer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Cpath d=%22M4 28V4a24 24 0 0 1 24 24z%22 fill=%22%2338450f%22/%3E%3C/svg%3E">
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root { --bg:#ecebe7; --panel:#e1dfd9; --ink:#2f3a0c; --muted:#525c2f; --line:#d3d0c7; --accent:#38450f; --accent-ink:#ecebe7; --ok:#3d6b1f; --warn:#8a5a00; --bad:#9b2c1c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#171a10; --panel:#21261a; --ink:#e8e6de; --muted:#b9bca6; --line:#30362a; --accent:#c3cf8a; --accent-ink:#171a10; --ok:#9fd07a; --warn:#e2b24f; --bad:#f08a76; color-scheme:dark; } }
+:root[data-theme="dark"] { --bg:#171a10; --panel:#21261a; --ink:#e8e6de; --muted:#b9bca6; --line:#30362a; --accent:#c3cf8a; --accent-ink:#171a10; --ok:#9fd07a; --warn:#e2b24f; --bad:#f08a76; color-scheme:dark; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; display:grid; grid-template-columns:minmax(0,1fr) 340px; height:100%; }
+html { height:100%; }
+#view { position:relative; min-height:320px; }
+#view canvas { display:block; width:100%; height:100%; }
+aside { background:var(--panel); border-left:1px solid var(--line); overflow:auto; padding-block:16px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); }
+select { width:100%; padding:7px 8px; border-radius:6px; border:1px solid var(--line); background-color:var(--bg); color:var(--ink); font:inherit; margin-bottom:12px; }
+.eyebrow { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:4px; }
+.desc { color:var(--muted); margin:2px 0 8px; }
+:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+h1 { font-size:18px; margin:0 0 4px; }
+h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:18px 0 8px; }
+.badge { display:inline-block; padding:2px 8px; border-radius:999px; font-weight:600; font-size:12px; }
+.pass { background:color-mix(in srgb, var(--ok) 18%, transparent); color:var(--ok); }
+.fail { background:color-mix(in srgb, var(--warn) 18%, transparent); color:var(--warn); }
+.joint { border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:8px; }
+.joint .row { display:flex; justify-content:space-between; gap:8px; color:var(--muted); font-size:12px; }
+.joint b { color:var(--ink); }
+input[type=range] { width:100%; accent-color:var(--accent); }
+button { background:var(--accent); color:var(--accent-ink); border:0; border-radius:6px; padding:7px 12px; font-weight:600; cursor:pointer; }
+button.secondary { background:transparent; color:var(--ink); border:1px solid var(--line); }
+.controls { display:flex; gap:8px; flex-wrap:wrap; }
+label.toggle { display:flex; gap:6px; align-items:center; color:var(--muted); margin-top:8px; }
+ul { padding-left:18px; margin:6px 0; color:var(--muted); }
+.meter { height:4px; background:var(--line); border-radius:2px; overflow:hidden; margin-top:4px; }
+.meter > i { display:block; height:100%; }
+body.embed { grid-template-columns:1fr; grid-template-rows:100%; height:100vh; height:100dvh; }
+body.embed #view { height:100%; }
+body.embed aside { display:none; }
+@media (max-width: 760px) { body { grid-template-columns:1fr; grid-template-rows:55vh auto; height:auto; } aside { border-left:0; border-top:1px solid var(--line); } }
+</style>
+</head>
+<body>
+<div id="view"></div>
+<aside>
+  <label for="picker" id="pickerLabel" class="eyebrow" hidden>Object</label>
+  <select id="picker" name="object" autocomplete="off" hidden></select>
+  <h1 id="title"></h1>
+  <p id="desc" class="desc" hidden></p>
+  <div id="status"></div>
+  <h2>Playback</h2>
+  <div class="controls">
+    <button id="play">▶ Replay capture</button>
+    <button id="reset" class="secondary">Rest pose</button>
+  </div>
+  <input id="frame" type="range" min="0" max="0" value="0" aria-label="frame">
+  <label class="toggle"><input id="showPts" type="checkbox" checked> observed points</label>
+  <label class="toggle"><input id="showAxes" type="checkbox" checked> joint axes (colour = confidence)</label>
+  <h2>Joints</h2>
+  <div id="joints"></div>
+  <h2>Links</h2>
+  <div id="links"></div>
+  <h2>Issues</h2>
+  <ul id="issues"></ul>
+</aside>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js" integrity="sha384-wagZhIFgY4hD+7awjQjR4e2E294y6J2HSnd8eTNc15ZubTeQeVRZwhQJ+W6hnBsf" crossorigin="anonymous"></script>
+<script>
+const DATA = __SCENE_JSON__;
+const SCENES = DATA.gallery || [DATA];
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const deg = r => (r * 180 / Math.PI).toFixed(1) + '°';
+const fmt = (j, v) => j.type === 'prismatic' ? (v * 1000).toFixed(1) + ' mm' : deg(v);
+const confColor = c => c > 0.95 ? 0x4f7a1f : c > 0.7 ? 0xc08a1a : 0xb23a2a;
+const $ = id => document.getElementById(id);
+const view = $('view');
+const HAS3D = typeof THREE !== 'undefined' && typeof THREE.OrbitControls !== 'undefined';
+// ?embed hides the panel and auto-plays the capture (used for hero embeds)
+const EMBED = new URLSearchParams(location.search).has('embed');
+if (EMBED) document.body.classList.add('embed');
+
+// ---- 3D stage (created once, reused across objects)
+let renderer, scene, camera, controls, stage;
+if (HAS3D) {
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  view.appendChild(renderer.domElement);
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
+  camera.up.set(0, 0, 1);
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.9));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.7); sun.position.set(1, -1.5, 2); scene.add(sun);
+  const grid = new THREE.GridHelper(4, 80, 0x888888, 0x888888); grid.rotation.x = Math.PI / 2; grid.material.opacity = 0.25; grid.material.transparent = true; scene.add(grid);
+  stage = new THREE.Group(); scene.add(stage);
+  const resize = () => { const w = view.clientWidth, h = view.clientHeight || 400; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); };
+  window.addEventListener('resize', resize); resize();
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(resize).observe(view);
+} else {
+  const msg = el('div', null, '3D view unavailable (could not load three.js from the CDN). Joint data, sliders and validation results still work.');
+  msg.style.cssText = 'padding:24px;color:var(--muted)'; view.append(msg);
+}
+const v3 = a => new THREE.Vector3(a[0], a[1], a[2]);
+const rgb = s => { const p = s.split(' ').map(Number); return new THREE.Color(p[0], p[1], p[2]); };
+
+// ---- per-object state
+let S = null, nodes = {}, pointClouds = [], axisHelpers = [], sliders = {}, nFrames = 1;
+let playing = false, f = 0, last = 0;
+
+function disposeStage() {
+  if (!HAS3D) return;
+  stage.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+  stage.clear();
+}
+
+function buildLink(name, parentGroup, parentOrigin, linkByName, jointByChild) {
+  const L = linkByName[name];
+  const holder = new THREE.Group();
+  holder.position.copy(v3(L.origin).sub(parentOrigin));
+  const moving = new THREE.Group();
+  holder.add(moving); parentGroup.add(holder);
+  const b = L.box, R = b.rotation;
+  const m4 = new THREE.Matrix4().set(R[0][0], R[0][1], R[0][2], 0, R[1][0], R[1][1], R[1][2], 0, R[2][0], R[2][1], R[2][2], 0, 0, 0, 0, 1);
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.size[0], b.size[1], b.size[2]),
+    new THREE.MeshStandardMaterial({ color: rgb(L.color), roughness: 0.6, metalness: 0.1, transparent: true, opacity: 0.85 }));
+  mesh.quaternion.setFromRotationMatrix(m4);
+  mesh.position.copy(v3(b.center).sub(v3(L.origin)));
+  moving.add(mesh);
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), new THREE.LineBasicMaterial({ color: 0x222222, transparent: true, opacity: 0.35 }));
+  edges.quaternion.copy(mesh.quaternion); edges.position.copy(mesh.position); moving.add(edges);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(L.points.flatMap(p => [p[0] - L.origin[0], p[1] - L.origin[1], p[2] - L.origin[2]]), 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.006, color: 0x111111 }));
+  pts.visible = $('showPts').checked;
+  moving.add(pts); pointClouds.push(pts);
+  const j = jointByChild[name];
+  if (j) {
+    const ax = v3(j.axis).normalize();
+    const len = Math.max(...b.size) * 0.8 + 0.05;
+    const arrow = new THREE.ArrowHelper(ax, ax.clone().multiplyScalar(-len / 2), len, confColor(j.confidence), 0.03, 0.015);
+    arrow.visible = $('showAxes').checked;
+    holder.add(arrow); axisHelpers.push(arrow);
+  }
+  nodes[name] = { holder, moving };
+  S.joints.filter(c => c.parent === name).forEach(c => buildLink(c.child, moving, v3(L.origin), linkByName, jointByChild));
+}
+
+function setJoint(j, q) {
+  const n = nodes[j.child]; if (!n) return;
+  const ax = v3(j.axis).normalize();
+  if (j.type === 'prismatic') n.moving.position.copy(ax.multiplyScalar(q));
+  else if (j.type !== 'fixed') n.moving.quaternion.setFromAxisAngle(ax, q);
+}
+
+function showFrame(fr) {
+  const values = [];
+  S.joints.forEach(j => { const q = j.states[Math.min(fr, j.states.length - 1)] || 0; setJoint(j, q); const sl = sliders[j.name]; sl.s.value = q; sl.cur.textContent = fmt(j, q); values.push({ name: j.name, type: j.type, value: q }); });
+  $('frame').value = fr;
+  // An embedding page (the landing hero) shows live joint readouts; the values are not sensitive.
+  if (window.parent !== window) window.parent.postMessage({ type: 'om-frame', object: S.name, passed: !!(S.validation || {}).passed, joints: values }, '*');
+}
+
+function mount(scn) {
+  S = scn; playing = false; f = 0;
+  nodes = {}; pointClouds = []; axisHelpers = []; sliders = {};
+  $('title').textContent = S.name;
+  const desc = $('desc'); desc.textContent = S.description || ''; desc.hidden = !S.description;
+  const v = S.validation || {};
+  const st = $('status'); st.replaceChildren();
+  st.append(el('span', 'badge ' + (v.passed ? 'pass' : 'fail'), v.passed ? 'SIM-VALIDATED' : 'NEEDS REVIEW'),
+    el('div', null, `MuJoCo replay ${v.replay_overall_mm ?? '—'} mm (unexplained by noise: ${v.replay_excess_mm ?? '—'} mm) · stable: ${v.stable} · labels: ${S.annotation_source || 'rules'}`));
+
+  const jointsDiv = $('joints'); jointsDiv.replaceChildren();
+  S.joints.forEach(j => {
+    const card = el('div', 'joint');
+    const head = el('div', 'row'); head.append(el('b', null, j.name), el('span', null, `${j.type} · ${j.parent} → ${j.child}`));
+    const lo = j.type === 'continuous' ? -Math.PI : j.lower, hi = j.type === 'continuous' ? Math.PI : j.upper;
+    const s = el('input'); s.type = 'range'; s.min = lo; s.max = hi; s.step = (hi - lo) / 400 || 0.001; s.value = 0;
+    s.id = 'joint-' + j.name; s.setAttribute('aria-label', j.name);
+    const val = el('div', 'row'); const cur = el('span', null, fmt(j, 0));
+    val.append(el('span', null, `${fmt(j, lo)} … ${fmt(j, hi)}`), cur);
+    s.addEventListener('input', () => { playing = false; setJoint(j, +s.value); cur.textContent = fmt(j, +s.value); });
+    const meta = el('div', 'row');
+    meta.append(el('span', null, `confidence ${(j.confidence * 100).toFixed(1)}%`),
+      el('span', null, j.axis_std_deg == null ? 'uncertainty n/a' : `axis ±${j.axis_std_deg}° · pivot ±${j.origin_std_mm} mm`));
+    const meter = el('div', 'meter'); const fill = el('i'); fill.style.width = (j.confidence * 100) + '%';
+    fill.style.background = '#' + confColor(j.confidence).toString(16).padStart(6, '0'); meter.append(fill);
+    card.append(head, s, val, meta, meter); jointsDiv.append(card); sliders[j.name] = { s, cur, j };
+  });
+  const linksDiv = $('links'); linksDiv.replaceChildren();
+  S.links.forEach(l => { const r = el('div', 'joint'); const h = el('div', 'row'); h.append(el('b', null, l.name), el('span', null, `${l.material} · ${l.mass} kg`)); r.append(h, el('div', 'row', 'size ' + l.box.size.map(x => (x * 1000).toFixed(0)).join(' × ') + ' mm')); linksDiv.append(r); });
+  const issues = $('issues'); issues.replaceChildren();
+  [...(v.errors || []).map(e => 'Error: ' + e), ...(v.warnings || []).map(w => 'Warning: ' + w), ...(S.notes || []).map(n => 'Note: ' + n)].forEach(t => issues.append(el('li', null, t)));
+  if (!issues.children.length) issues.append(el('li', null, 'none'));
+
+  nFrames = Math.max(1, ...S.joints.map(j => j.states.length));
+  $('frame').max = nFrames - 1;
+  if (HAS3D) {
+    disposeStage();
+    const linkByName = Object.fromEntries(S.links.map(l => [l.name, l]));
+    const jointByChild = Object.fromEntries(S.joints.map(j => [j.child, j]));
+    buildLink(S.root, stage, new THREE.Vector3(), linkByName, jointByChild);
+    const all = new THREE.Box3(); S.links.forEach(l => all.expandByPoint(v3(l.box.center)));
+    const c = all.getCenter(new THREE.Vector3());
+    const size = Math.max(0.3, ...S.links.map(l => Math.max(...l.box.size))) * (EMBED ? 1.25 : 1.7);
+    camera.position.set(c.x + size, c.y - size * 1.3, c.z + size * 0.8); controls.target.copy(c);
+  }
+  showFrame(0);
+  if (EMBED) playing = !matchMedia('(prefers-reduced-motion: reduce)').matches && !window.__omPaused;
+}
+
+$('play').onclick = () => { playing = !playing; };
+$('reset').onclick = () => { playing = false; showFrame(0); };
+$('frame').oninput = () => { playing = false; showFrame(+$('frame').value); };
+$('showPts').onchange = e => pointClouds.forEach(p => p.visible = e.target.checked);
+$('showAxes').onchange = e => axisHelpers.forEach(a => a.visible = e.target.checked);
+
+const byName = Object.fromEntries(SCENES.map(x => [x.name, x]));
+const picker = $('picker');
+if (SCENES.length > 1) {
+  picker.hidden = false; $('pickerLabel').hidden = false;
+  SCENES.forEach(x => { const o = el('option', null, x.name.replace(/_/g, ' ')); o.value = x.name; picker.append(o); });
+  picker.onchange = () => { location.hash = picker.value; };
+}
+function route() {
+  const name = decodeURIComponent(location.hash.slice(1));
+  const target = byName[name] || SCENES[0];
+  picker.value = target.name;
+  mount(target);
+}
+window.addEventListener('hashchange', route);
+// The embedding page can pause and resume the replay (its own pause button).
+window.addEventListener('message', (ev) => {
+  if (ev.source !== window.parent || !ev.data || ev.data.type !== 'om-control') return;
+  window.__omPaused = !ev.data.play;
+  playing = !!ev.data.play;
+});
+route();
+function loop(t) { requestAnimationFrame(loop); if (playing && t - last > 50) { f = (f + 1) % nFrames; showFrame(f); last = t; } if (HAS3D) { controls.update(); renderer.render(scene, camera); } }
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ObjectModel · Film a cabinet, get its URDF</title>
+<meta name="description" content="Turn a capture of a cabinet, laptop or lamp into a URDF/MJCF digital twin whose joints are measured from motion and proven in MuJoCo.">
+<meta property="og:title" content="ObjectModel · Film a cabinet, get its URDF">
+<meta property="og:description" content="Turn a capture of a cabinet, laptop or lamp into a URDF/MJCF digital twin whose joints are measured from motion and proven in MuJoCo.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://objectmodel.vercel.app/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#ecebe7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171a10" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://objectmodel.vercel.app/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<link rel="stylesheet" href="/assets/site.css">
+<script src="/assets/site.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="ObjectModel home"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 28V4a24 24 0 0 1 24 24z"/></svg><span translate="no">ObjectModel</span></a>
+    <nav class="nav" aria-label="Main">
+      <a href="/playground">Playground</a><a href="/humanoids">Humanoids</a><a href="/gallery" class="wide">Gallery</a><a href="/docs">Docs</a><a href="/#benchmark" class="wide">Benchmark</a><a href="https://github.com/ayanbhardwaj1/objectmodel" class="wide">GitHub</a>
+      <button class="theme-btn" type="button" data-theme-toggle aria-label="Switch between light and dark"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="2" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2 18V2a16 16 0 0 1 16 16z" fill="currentColor"/></svg></button>
+    </nav>
+  </div>
+</header>
+<main id="main">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap hero-grid">
+      <h1 id="hero-title" class="rise">Film a cabinet. Get&nbsp;its&nbsp;URDF.</h1>
+      <div class="hero-copy">
+        <p class="rise" style="--i:1">ObjectModel measures every hinge and slider from the motion, then hands you the model only after <span translate="no">MuJoCo</span> has replayed it against your capture.</p>
+        <a class="btn btn-primary rise" style="--i:2" href="/playground">Reconstruct one now <span class="arrow" aria-hidden="true">→</span></a>
+      </div>
+      <div class="stage shutter" aria-label="Live reconstruction">
+        <div class="fragment" data-ui>
+          <div class="fragment-bar">
+          <div class="fragment-tabs" role="tablist" aria-label="Object to replay">
+            <button type="button" role="tab" aria-selected="true" data-object="kitchen_cabinet">Cabinet</button>
+            <button type="button" role="tab" aria-selected="false" data-object="dresser">Dresser</button>
+            <button type="button" role="tab" aria-selected="false" data-object="desk_lamp">Desk lamp</button>
+            <button type="button" role="tab" aria-selected="false" data-object="fridge">Fridge</button>
+          </div>
+          <button type="button" class="pause" id="hero-pause" aria-pressed="false">Pause</button>
+          </div>
+          <div class="fragment-view">
+            <img src="/img/hero-poster.webp" alt="Reconstructed kitchen cabinet with its door swung open and drawer pulled out" width="760" height="620" fetchpriority="high">
+            <iframe id="hero-viewer" src="/gallery?embed=1#kitchen_cabinet" title="Kitchen cabinet replaying its capture in 3D" loading="eager"></iframe>
+          </div>
+          <div class="readout" id="readout" aria-live="off">
+            <div class="ok"><b>Validated</b><span>MuJoCo verdict</span></div>
+            <div><b class="num">82.4°</b><span>door_hinge, revolute</span></div>
+            <div><b class="num">167 mm</b><span>drawer_slide, prismatic</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="how" aria-labelledby="how-title">
+    <div class="wrap grow">
+      <h2 id="how-title" class="rise">Points in, joints out</h2>
+      <figure class="rise" style="--i:1">
+        <div class="tile"><img class="contain" src="/img/stage-tracked.webp" alt="A cloud of tracked surface points from a kitchen cabinet capture" width="1400" height="1400" loading="lazy"></div>
+        <figcaption><h3>Tracked</h3><p>Points are followed through every frame and lifted to metres with depth or a printed ArUco square.</p></figcaption>
+      </figure>
+      <figure class="rise" style="--i:2">
+        <div class="tile"><img class="contain" src="/img/stage-fitted.webp" alt="The same cabinet split into body, door and drawer with their fitted joints" width="1400" height="1400" loading="lazy"></div>
+        <figcaption><h3>Fitted</h3><p>Rigid parts are split out and each joint is chosen by evidence: fixed, sliding or hinged, axis from the motion itself.</p></figcaption>
+      </figure>
+      <figure class="rise" style="--i:3">
+        <div class="tile"><button type="button" class="pause tile-pause" id="clip-pause" aria-pressed="false" aria-label="Pause the replay clip">Pause</button><video id="clip" src="/img/replay-dresser.mp4" poster="/img/replay-dresser-poster.jpg" autoplay muted loop playsinline width="720" height="720" aria-label="A five-part dresser replaying its capture: drawers slide out and the door swings"><source src="/img/replay-dresser.webm" type="video/webm"><source src="/img/replay-dresser.mp4" type="video/mp4"></video></div>
+        <figcaption><h3>Proven</h3><p>MuJoCo compiles the URDF and MJCF, replays your capture point by point and sweeps every joint before you get a file.</p></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section-tight" id="benchmark" aria-labelledby="bench-title">
+    <div class="wrap">
+      <div class="board">
+        <div class="lead rise">
+          <h2 id="bench-title">Tested on seven objects</h2>
+          <p>Ground truth for every joint, three seeds each, 5% of tracks lost per frame. Run it yourself with <code>objectmodel bench</code>.</p>
+        </div>
+        <div class="rise" style="--i:1"><b>Kitchen cabinet</b><div><div class="figure num">0.32°</div><span>axis error, door and drawer</span></div></div>
+        <div class="rise" style="--i:2"><b>Fridge</b><div><div class="figure num">0.04°</div><span>axis error, mirrored doors</span></div></div>
+        <div class="rise" style="--i:3"><b>Dresser</b><div><div class="figure num">0.51°</div><span>axis error, five parts</span></div></div>
+        <div class="rise" style="--i:4"><b>Laptop</b><div><div class="figure num">0.63°</div><span>axis error, hinged lid</span></div></div>
+        <div class="rise" style="--i:5"><b>Drawer cabinet</b><div><div class="figure num">0.57°</div><span>axis error, one slider</span></div></div>
+        <div class="rise" style="--i:6"><b>Desk lamp</b><div><div class="figure num">1.75°</div><span>axis error, two-link chain</span></div></div>
+        <div class="rise" style="--i:7"><b>Faucet</b><div><div class="figure num">2.91°</div><span>axis error, 13&nbsp;mm lever</span></div></div>
+        <div class="rise" style="--i:8"><b>Hand-held camera</b><div><div class="figure num">100%</div><span>validated at 1&nbsp;mm noise</span></div></div>
+        <div class="rise" style="--i:9"><b>Noise floor</b><div><div class="figure num">0.03&nbsp;mm</div><span>error left once noise is removed</span></div></div>
+        <div class="rise" style="--i:10"><b>Speed</b><div><div class="figure num">1.5&nbsp;s</div><span>per object on a laptop CPU</span></div></div>
+      </div>
+      <div class="table-wrap stack-table rise">
+        <table>
+          <caption class="sr-only">Benchmark results by tracking noise</caption>
+          <thead><tr><th scope="col">Tracking noise</th><th scope="col" class="n">Correct tree</th><th scope="col" class="n">Joint type</th><th scope="col" class="n">Axis error</th><th scope="col" class="n">Pivot error</th><th scope="col" class="n">Error left after noise</th><th scope="col" class="n">Passes MuJoCo</th></tr></thead>
+          <tbody>
+            <tr><td data-label="Tracking noise">1&nbsp;mm</td><td class="n" data-label="Correct tree">100%</td><td class="n" data-label="Joint type">100%</td><td class="n" data-label="Axis error">0.18°</td><td class="n" data-label="Pivot error">0.2&nbsp;mm</td><td class="n" data-label="Error left after noise">0.03&nbsp;mm</td><td class="n pass" data-label="Passes MuJoCo">100%</td></tr>
+            <tr><td data-label="Tracking noise">3&nbsp;mm</td><td class="n" data-label="Correct tree">95%</td><td class="n" data-label="Joint type">98%</td><td class="n" data-label="Axis error">0.69°</td><td class="n" data-label="Pivot error">1.0&nbsp;mm</td><td class="n" data-label="Error left after noise">0.85&nbsp;mm</td><td class="n pass" data-label="Passes MuJoCo">100%</td></tr>
+            <tr><td data-label="Tracking noise">6&nbsp;mm</td><td class="n" data-label="Correct tree">86%</td><td class="n" data-label="Joint type">93%</td><td class="n" data-label="Axis error">1.35°</td><td class="n" data-label="Pivot error">1.6&nbsp;mm</td><td class="n" data-label="Error left after noise">2.30&nbsp;mm</td><td class="n pass" data-label="Passes MuJoCo">100%</td></tr>
+            <tr><td data-label="Tracking noise">10&nbsp;mm</td><td class="n" data-label="Correct tree">86%</td><td class="n" data-label="Joint type">90%</td><td class="n" data-label="Axis error">1.58°</td><td class="n" data-label="Pivot error">3.8&nbsp;mm</td><td class="n" data-label="Error left after noise">5.19&nbsp;mm</td><td class="n" data-label="Passes MuJoCo">81%</td></tr>
+            <tr><td data-label="Tracking noise">1&nbsp;mm, hand-held camera</td><td class="n" data-label="Correct tree">100%</td><td class="n" data-label="Joint type">100%</td><td class="n" data-label="Axis error">0.30°</td><td class="n" data-label="Pivot error">0.2&nbsp;mm</td><td class="n" data-label="Error left after noise">0.00&nbsp;mm</td><td class="n pass" data-label="Passes MuJoCo">100%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="teaser" aria-labelledby="teaser-title">
+    <div class="wrap teaser-grid">
+      <div class="teaser-text rise">
+        <h2 id="teaser-title">Then a humanoid opens it</h2>
+        <p>Hand the twin to a robot. A humanoid plans its stance and reach from the measured hinge, opens the real object in a separate simulation, and the grasp force shows whether the twin was right. With ObjectModel's twins every feasible door, drawer and lid opens within a few newtons of a plan with the true hinge. A 2° axis error already fails every task on a stiff arm.</p>
+        <a class="btn teaser-btn" href="/humanoids">See the humanoid runs <span class="arrow" aria-hidden="true">→</span></a>
+      </div>
+      <figure class="teaser-figure shutter">
+        <img src="/img/tasks/apollo-fridge-left-door.jpg" alt="The public Apollo humanoid model opening a fridge door with its left hand" width="960" height="540" loading="lazy">
+      </figure>
+    </div>
+  </section>
+
+  <section class="section-tight" aria-label="What ObjectModel does for you">
+    <div class="bands" id="bands">
+      <div class="band" data-on="true">
+        <div class="wrap band-row">
+          <div class="band-inner">
+            <p class="say">Check every model in MuJoCo before export.</p>
+            <p class="then">URDF and MJCF agree to 0.00&nbsp;mm across the joint range, and 0.03&nbsp;mm of replay error is left once tracking noise is removed.</p>
+          </div>
+          <span class="switch-hit" data-ui><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Check every model in MuJoCo before export"></button></span>
+        </div>
+      </div>
+      <div class="band" data-on="true">
+        <div class="wrap band-row">
+          <div class="band-inner">
+            <p class="say">Cancel out a hand-held camera.</p>
+            <p class="then">Joints are fitted on motion relative to their parent, so 100% of 1&nbsp;mm hand-held captures still validate.</p>
+          </div>
+          <span class="switch-hit" data-ui><button class="switch" type="button" role="switch" aria-checked="true" aria-label="Cancel out a hand-held camera"></button></span>
+        </div>
+      </div>
+      <div class="band" data-on="false">
+        <div class="wrap band-row">
+          <div class="band-inner">
+            <p class="say">Read metric scale from a printed marker.</p>
+            <p class="then">A 50&nbsp;mm ArUco square put the laptop's hinge within 3% of its true position.</p>
+          </div>
+          <span class="switch-hit" data-ui><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Read metric scale from a printed marker"></button></span>
+        </div>
+      </div>
+      <div class="band" data-on="false">
+        <div class="wrap band-row">
+          <div class="band-inner">
+            <p class="say">Sweep every joint for collisions.</p>
+            <p class="then">Each joint is driven through its whole range, and parts that would run into each other are flagged in the report.</p>
+          </div>
+          <span class="switch-hit" data-ui><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Sweep every joint for collisions"></button></span>
+        </div>
+      </div>
+      <div class="band" data-on="false">
+        <div class="wrap band-row">
+          <div class="band-inner">
+            <p class="say">Let a language model name the parts.</p>
+            <p class="then">Any OpenAI-compatible endpoint (Llama API, vLLM, Ollama) calls the lid a lid and picks aluminium. Its reply is checked; geometry never comes from it.</p>
+          </div>
+          <span class="switch-hit" data-ui><button class="switch" type="button" role="switch" aria-checked="false" aria-label="Let a language model name the parts"></button></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="plate" id="gallery" aria-labelledby="plate-title">
+    <div class="wrap">
+      <figure class="plate-figure shutter">
+        <img id="plate-img" src="/img/square-dresser.webp" alt="The reconstructed dresser with three drawers and a door" width="1600" height="1600" loading="lazy">
+      </figure>
+      <div class="plate-text">
+        <div class="plate-tabs" role="tablist" aria-label="Gallery objects">
+          <button type="button" role="tab" aria-selected="true" data-plate="dresser">Dresser</button>
+          <button type="button" role="tab" aria-selected="false" data-plate="desk_lamp">Desk lamp</button>
+          <button type="button" role="tab" aria-selected="false" data-plate="fridge">Fridge</button>
+        </div>
+        <div class="plate-body">
+          <h2 id="plate-title">Five parts, one replay</h2>
+          <p id="plate-desc">Three drawers and a door, each found on its own and each with its own joint. Axis error 0.51° on average, and every drawer slides out of the body rather than into it.</p>
+        </div>
+        <div class="plate-actions">
+          <a id="plate-open" href="/gallery#dresser">Open it in the gallery</a>
+          <a href="/docs">Read the docs</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="close-title">
+    <div class="wrap">
+      <h2 id="close-title" class="sr-only">Try it</h2>
+      <form class="blank-form rise" action="/playground" method="get">
+        <p class="sentence">Rebuild a
+          <label class="sr-only" for="cta-object">Object</label>
+          <select id="cta-object" name="object" autocomplete="off">
+            <option value="dresser">dresser</option>
+            <option value="kitchen_cabinet">kitchen cabinet</option>
+            <option value="desk_lamp">desk lamp</option>
+            <option value="fridge">fridge</option>
+            <option value="laptop">laptop</option>
+            <option value="faucet">faucet</option>
+            <option value="drawer_cabinet">drawer cabinet</option>
+          </select>
+          in your browser, <button type="submit">now</button></p>
+        <p class="after">It runs on our servers in about four seconds and hands you the URDF, the MJCF and the validation report.</p>
+      </form>
+      <div class="code rise" style="margin-top:72px">
+        <pre><code><span class="c"># or on your machine</span>
+pip install "objectmodel[sim] @ git+https://github.com/ayanbhardwaj1/objectmodel"
+objectmodel video clip.mp4 --depth depth.npy --hint "kitchen cabinet"</code></pre>
+      </div>
+    </div>
+  </section>
+</main>
+<script src="/assets/home.js" defer></script>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="blocks" aria-hidden="true"><span style="height:100%">O</span><span style="height:74%">b</span><span style="height:86%">j</span><span style="height:64%">e</span><span style="height:92%">c</span><span style="height:70%">t</span><span style="height:100%">M</span><span style="height:80%">o</span><span style="height:66%">d</span><span style="height:88%">e</span><span style="height:76%">l</span></div>
+    <div class="foot-grid">
+      <nav aria-label="Product"><b>Product</b><a href="/playground">Playground</a><a href="/humanoids">Humanoids</a><a href="/gallery">Gallery</a><a href="/#benchmark">Benchmark</a></nav>
+      <nav aria-label="Documentation"><b>Docs</b><a href="/docs#install">Install</a><a href="/docs#rest">REST API</a><a href="/docs#mcp">MCP server</a></nav>
+      <nav aria-label="Project"><b>Project</b><a href="https://github.com/ayanbhardwaj1/objectmodel">Source code</a><a href="https://github.com/ayanbhardwaj1/objectmodel/blob/main/LICENSE">MIT licence</a><a href="/api/reconstruct">API status</a></nav>
+      <div class="reach">
+        <span>Install from source</span>
+        <code translate="no">pip install "objectmodel[sim] @ git+https://github.com/ayanbhardwaj1/objectmodel"</code>
+        <span>Call the API</span>
+        <code translate="no">POST https://objectmodel.vercel.app/api/reconstruct</code>
+      </div>
+    </div>
+    <div class="foot-last"><span>ObjectModel, measured not guessed. MIT licensed.</span><a class="btn btn-sm" href="/playground">Open the playground</a></div>
+  </div>
+</footer>
+</body>
+</html>

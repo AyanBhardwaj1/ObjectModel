@@ -1,0 +1,98 @@
+<!--HEAD Playground · ObjectModel|Reconstruct an articulated object in your browser: pick a demo or upload point tracks, then download the validated URDF and MJCF.-->
+<!--HEADER playground-->
+<main class="wrap pg">
+  <div class="pg-head">
+    <h1 class="rise">Reconstruct an object</h1>
+    <p class="rise" style="--i:1">The full pipeline runs on our servers: parts, joints, physics, URDF and MJCF export, then the MuJoCo checks.</p>
+  </div>
+  <div class="pg-grid">
+    <form class="panel" id="form" novalidate>
+      <div class="tabs" role="tablist" aria-label="Input">
+        <button type="button" role="tab" id="tab-demo" aria-selected="true" aria-controls="pane-demo">Demo object</button>
+        <button type="button" role="tab" id="tab-upload" aria-selected="false" aria-controls="pane-upload">Your tracks</button>
+      </div>
+      <div id="pane-demo" role="tabpanel" aria-labelledby="tab-demo" class="pane">
+        <label class="field" for="object"><span>Object</span>
+          <select id="object" name="object" autocomplete="off">
+            <option value="kitchen_cabinet">Kitchen cabinet: door and drawer</option>
+            <option value="dresser">Dresser: three drawers and a door</option>
+            <option value="desk_lamp">Desk lamp: two-link chain</option>
+            <option value="laptop">Laptop: hinged lid</option>
+            <option value="fridge">Fridge: mirrored doors</option>
+            <option value="drawer_cabinet">Drawer cabinet: one slider</option>
+            <option value="faucet">Faucet: swivel spout and lever</option>
+          </select>
+        </label>
+        <label class="field" for="noise"><span>Tracking noise <output id="noise-out" for="noise" class="num">1.0&nbsp;mm</output></span>
+          <input id="noise" name="noise_mm" type="range" min="0" max="10" step="0.5" value="1">
+        </label>
+        <label class="field" for="sway"><span>Hand-held camera sway <output id="sway-out" for="sway" class="num">off</output></span>
+          <input id="sway" name="camera_motion" type="range" min="0" max="0.5" step="0.05" value="0">
+        </label>
+        <label class="field" for="seed"><span>Random seed</span>
+          <input id="seed" name="seed" type="number" min="0" max="9999" value="0" inputmode="numeric" autocomplete="off">
+        </label>
+      </div>
+      <div id="pane-upload" role="tabpanel" aria-labelledby="tab-upload" class="pane" hidden>
+        <label class="field" for="file"><span>Tracks file (.npz, up to 4&nbsp;MB)</span>
+          <input id="file" name="tracks" type="file" accept=".npz" autocomplete="off">
+        </label>
+        <p class="hint">It needs <code>points</code> shaped (T, N, 3) in metres and <code>visible</code> shaped (T, N); <code>labels</code> (N) is optional. No file handy? <a href="/samples/laptop_tracks.npz" download>Download a sample laptop capture</a>.</p>
+        <label class="field" for="hint"><span>What is it? (optional)</span>
+          <input id="hint" name="hint" type="text" maxlength="80" placeholder="bedside cabinet…" autocomplete="off" spellcheck="false">
+        </label>
+      </div>
+      <button class="btn btn-primary run" id="run" type="submit">Reconstruct</button>
+      <p class="hint" id="status" role="status" aria-live="polite">Showing a saved result. Press Reconstruct to run it live.</p>
+    </form>
+
+    <div class="result">
+      <div class="viewer-frame"><iframe id="viewer" title="3D viewer of the reconstructed model"></iframe></div>
+      <div class="summary" id="summary" aria-live="polite"></div>
+      <div class="table-wrap pg-table"><table>
+        <caption class="sr-only">Estimated joints</caption>
+        <thead><tr><th scope="col">Joint</th><th scope="col">Type</th><th scope="col">Parent to child</th><th scope="col" class="n">Range</th><th scope="col" class="n">Confidence</th><th scope="col" class="n">Axis spread</th></tr></thead>
+        <tbody id="joints"></tbody>
+      </table></div>
+      <div class="downloads" id="downloads"></div>
+      <ul class="pivot-list issues" id="issues"></ul>
+    </div>
+  </div>
+</main>
+<style>
+.pg { padding-block: 32px 120px; }
+.pg-head { display: flex; flex-direction: column; gap: 14px; margin-bottom: 40px; }
+.pg-head h1 { font-size: var(--t-heading); }
+.pg-head p { max-width: 60ch; }
+.pg-grid { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 28px; align-items: start; }
+.panel { background: var(--surface); padding: 20px; display: flex; flex-direction: column; gap: 18px; position: sticky; top: 24px; border-top-right-radius: var(--swing-img); }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.tabs button { font: 600 var(--t-small) var(--font-body); border: 0; padding: 12px 8px; background: var(--sunken); color: var(--muted); cursor: pointer; transition: background-color .15s ease, color .15s ease; }
+.tabs button:hover { color: var(--ink); }
+.tabs button[aria-selected="true"] { background: var(--bg); color: var(--ink); }
+.pane { display: flex; flex-direction: column; gap: 18px; }
+.field { display: flex; flex-direction: column; gap: 8px; font-size: var(--t-small); font-weight: 600; }
+.field > span { display: flex; justify-content: space-between; gap: 8px; }
+.field output { font-weight: 500; color: var(--muted); }
+.field select, .field input[type=number], .field input[type=text], .field input[type=file] { font: 400 16px var(--font-body); padding: 11px 12px; border: 1px solid var(--line); background-color: var(--bg); color: var(--ink); width: 100%; min-width: 0; }
+.field input[type=range] { accent-color: var(--accent); width: 100%; min-height: 32px; }
+.hint { font-size: var(--t-small); color: var(--muted); overflow-wrap: anywhere; }
+.hint code { background: var(--bg); padding: 1px 5px; }
+.run { width: 100%; }
+.run[aria-busy="true"] { cursor: progress; background: var(--muted); }
+.result { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.viewer-frame { position: relative; aspect-ratio: 16 / 10; background: var(--surface); overflow: hidden; border-top-right-radius: var(--swing); }
+.viewer-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.summary div { background: var(--surface); padding: 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.summary b { font: 500 var(--t-statement)/1.05 var(--font-display); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.summary span { font-size: var(--t-small); color: var(--muted); }
+.summary .ok { color: var(--ok); }
+.summary .bad { color: var(--warn); }
+.pg-table { margin-top: 0; }
+.downloads { display: flex; flex-wrap: wrap; gap: 8px; }
+.issues { font-size: var(--t-small); }
+@media (max-width: 960px) { .pg-grid { grid-template-columns: 1fr; } .panel { position: static; } .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .viewer-frame { border-top-right-radius: 72px; } }
+</style>
+<script src="/assets/playground.js" defer></script>
+<!--FOOTER-->
