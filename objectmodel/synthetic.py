@@ -254,10 +254,37 @@ def faucet() -> SyntheticObject:
     )
 
 
+def dresser() -> SyntheticObject:
+    drawers = [BoxPart(f"drawer{k}", (0.15, -0.27, 0.2 + 0.22 * k), (0.32, 0.03, 0.18), "wood") for k in range(3)]
+    return SyntheticObject(
+        "dresser",
+        [BoxPart("body", (0, 0, 0.4), (0.8, 0.5, 0.8), "wood"), *drawers,
+         BoxPart("door", (-0.2, -0.265, 0.4), (0.36, 0.02, 0.7), "wood")],
+        [*(GTJoint("body", f"drawer{k}", "prismatic", (0, -1, 0), (0.15, -0.27, 0.2 + 0.22 * k), 0.0, 0.3)
+           for k in range(3)),
+         GTJoint("body", "door", "revolute", (0, 0, 1), (-0.38, -0.265, 0.4), -1.7, 0.0)],
+        "dresser: three drawers and a hinged door (5 parts, 4 joints)",
+    )
+
+
+def fridge() -> SyntheticObject:
+    return SyntheticObject(
+        "fridge",
+        [BoxPart("body", (0, 0, 0.9), (0.7, 0.65, 1.8), "steel"),
+         BoxPart("left_door", (-0.175, -0.34, 0.9), (0.35, 0.04, 1.7), "steel"),
+         BoxPart("right_door", (0.175, -0.34, 0.9), (0.35, 0.04, 1.7), "steel")],
+        [GTJoint("body", "left_door", "revolute", (0, 0, 1), (-0.35, -0.34, 0.9), -1.9, 0.0),
+         GTJoint("body", "right_door", "revolute", (0, 0, 1), (0.35, -0.34, 0.9), 0.0, 1.9)],
+        "French-door fridge with mirrored hinges",
+    )
+
+
 CATALOGUE = {
     "laptop": laptop,
     "drawer_cabinet": drawer_cabinet,
     "desk_lamp": desk_lamp,
     "kitchen_cabinet": kitchen_cabinet,
     "faucet": faucet,
+    "dresser": dresser,
+    "fridge": fridge,
 }

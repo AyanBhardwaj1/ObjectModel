@@ -63,7 +63,7 @@ kitchen_cabinet: SIM-VALIDATED (replay 2.489 mm, unexplained 0.0 mm, noise σ 1.
 |---|---|
 | `objectmodel fit tracks.npz` | 3D point tracks: `points` (T,N,3) metres, `visible` (T,N). Plug in any tracker + depth (CoTracker, SAM-mask tracks + metric depth). `--labels parts.npy` uses your own per-track part ids (e.g. from SAM masks) and skips segmentation. |
 | `objectmodel video clip.mp4 --scale-mm 304` | A video. Built-in LK tracking with forward-backward checks and automatic background removal. With `--depth depth.npy` (T,H,W metres) points are back-projected in 3D; without it, side-on (in-plane) motion with metric scale from a printed ArUco marker (`--marker-mm 50`) or one known dimension (`--scale-mm`). |
-| `objectmodel demo <object>` | Procedural objects with exact ground truth: `laptop`, `drawer_cabinet`, `desk_lamp`, `kitchen_cabinet`, `faucet`. |
+| `objectmodel demo <object>` | Procedural objects with exact ground truth: `laptop`, `drawer_cabinet`, `desk_lamp` (serial chain), `kitchen_cabinet`, `faucet`, `dresser` (3 drawers + door), `fridge` (mirrored doors). |
 | `objectmodel bench` | The benchmark below. |
 
 ### Outputs (per object)
@@ -95,17 +95,17 @@ confined to `OBJECTMODEL_ROOT`.
 
 ## Benchmark
 
-`objectmodel bench --seeds 3 --noise 1 3 6 10` — 5 objects × 3 seeds × 4 noise levels, 5 % per-frame
+`objectmodel bench --seeds 3 --noise 1 3 6 10` — 7 objects (2–5 parts, up to 4 joints) × 3 seeds × 4 noise levels, 5 % per-frame
 track dropout. Axis error is the angle between estimated and true axes; pivot error is the distance from
 the estimated pivot to the true hinge line; "unexplained replay" is the MuJoCo replay error left after
 removing the expected contribution of measurement noise (√6·σ).
 
 | noise | topology | joint type | axis err ° | pivot err mm | state err | unexplained replay mm | sim pass | s/object |
 |---|---|---|---|---|---|---|---|---|
-| 1 mm | 100% | 100% | 0.22 | 0.3 | 0.0020 | 0.06 | 100% | 1.1 |
-| 3 mm | 93% | 97% | 0.90 | 1.3 | 0.0063 | 1.19 | 100% | 1.1 |
-| 6 mm | 80% | 90% | 1.75 | 1.9 | 0.0120 | 2.95 | 100% | 1.1 |
-| 10 mm | 80% | 87% | 2.02 | 4.9 | 0.0239 | 7.04 | 73% | 1.0 |
+| 1 mm | 100% | 100% | 0.18 | 0.2 | 0.0017 | 0.03 | 100% | 1.5 |
+| 3 mm | 95% | 98% | 0.69 | 1.0 | 0.0052 | 0.85 | 100% | 1.5 |
+| 6 mm | 86% | 93% | 1.35 | 1.6 | 0.0098 | 2.30 | 100% | 1.5 |
+| 10 mm | 86% | 90% | 1.58 | 3.8 | 0.0190 | 5.19 | 81% | 1.4 |
 
 By object (all noise levels):
 
@@ -116,9 +116,11 @@ By object (all noise levels):
 | desk_lamp | 100% | 100% | 1.75 | 2.4 | 92% |
 | kitchen_cabinet | 100% | 100% | 0.32 | 0.7 | 100% |
 | faucet | 42% | 67% | 2.91 | 3.6 | 83% |
+| dresser | 100% | 100% | 0.51 | 0.8 | 100% |
+| fridge | 100% | 100% | 0.04 | 1.0 | 100% |
 
 At 1 mm tracker noise every case is reconstructed with the right topology and joint types, a 0.2° mean
-axis error and a 0.3 mm mean pivot error; at 3 mm, 14 of 15 cases are fully correct. Almost all failures
+axis error and a 0.3 mm mean pivot error; at 3 mm, 20 of 21 cases have the correct topology. Almost all failures
 are the faucet's small lever, whose total motion (~13 mm) is close to the noise floor at 3–10 mm.
 Separating it would need a longer motion range.
 
@@ -129,9 +131,9 @@ part is static in the observed frame:
 
 | noise | topology | joint type | axis err ° | pivot err mm | state err | unexplained replay mm | sim pass | s/object |
 |---|---|---|---|---|---|---|---|---|
-| 1 mm | 100% | 100% | 0.39 | 0.2 | 0.0018 | 0.00 | 100% | 1.1 |
-| 3 mm | 87% | 87% | 0.97 | 1.1 | 0.0052 | 1.21 | 100% | 1.0 |
-| 6 mm | 67% | 83% | 1.45 | 1.1 | 0.0107 | 2.14 | 100% | 1.0 |
+| 1 mm | 100% | 100% | 0.30 | 0.2 | 0.0015 | 0.00 | 100% | 1.5 |
+| 3 mm | 90% | 90% | 0.73 | 0.9 | 0.0042 | 1.10 | 100% | 1.5 |
+| 6 mm | 76% | 88% | 1.15 | 1.1 | 0.0088 | 2.06 | 100% | 1.4 |
 
 ## How it works
 
@@ -158,7 +160,7 @@ part is static in the observed frame:
 ## Development
 
 ```bash
-python -m pytest -q        # 85 tests: math, estimation accuracy, export, validation, agent, video, MCP
+python -m pytest -q        # 93 tests: math, estimation accuracy, export, validation, agent, video, MCP
 ```
 
 The research behind the design is in [`reports/`](reports/) with notes in [`research_notes/`](research_notes/).

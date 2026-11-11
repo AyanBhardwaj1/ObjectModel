@@ -41,7 +41,10 @@ def test_joint_type_axis_and_pivot_match_ground_truth(tracks, name):
         assert angle_between_axes(est.axis, j.axis) < AXIS_TOL_DEG
         if j.type == "revolute":
             assert point_line_distance(est.origin, j.origin, j.axis) < PIVOT_TOL_M
-        assert np.max(np.abs(est.states - ts.joint_states[j.child])) < 0.03
+        from objectmodel.benchmark import aligned_states
+
+        states = aligned_states(est.states, est.axis, j.axis)
+        assert np.max(np.abs(states - ts.joint_states[j.child])) < 0.03
 
 
 @pytest.mark.parametrize("name", list(s.CATALOGUE))

@@ -31,6 +31,11 @@ class CaseResult:
     seconds: float
 
 
+def aligned_states(states: np.ndarray, est_axis, gt_axis) -> np.ndarray:
+    """Axis direction is sign-ambiguous; flipping it negates the joint values."""
+    return states if float(np.dot(est_axis, gt_axis)) >= 0 else -states
+
+
 def _owner(gt_labels, mask) -> int:
     vals, counts = np.unique(gt_labels[mask & (gt_labels >= 0)], return_counts=True)
     return int(vals[np.argmax(counts)]) if len(vals) else -1
@@ -65,7 +70,7 @@ def evaluate(name: str, noise: float, seed: int, camera_motion: float = 0.0) -> 
         axes.append(angle_between_axes(est.axis, j.axis))
         if j.type == "revolute":
             pivots.append(point_line_distance(est.origin, j.origin, j.axis) * 1000)
-        states.append(float(np.mean(np.abs(est.states - ts.joint_states[j.child]))))
+        states.append(float(np.mean(np.abs(aligned_states(est.states, est.axis, j.axis) - ts.joint_states[j.child]))))
     return CaseResult(
         name, noise * 1000, seed, topo, float(np.mean(types)),
         float(np.mean(axes)) if axes else nan, float(np.mean(pivots)) if pivots else nan,
