@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Docs · ObjectModel</title>
+<meta name="description" content="Install ObjectModel, feed it a capture, read its validation report, and call it from Python, REST or an MCP-capable agent.">
+<meta property="og:title" content="Docs · ObjectModel">
+<meta property="og:description" content="Install ObjectModel, feed it a capture, read its validation report, and call it from Python, REST or an MCP-capable agent.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://objectmodel.vercel.app/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#d9481f">
+<link rel="canonical" href="https://objectmodel.vercel.app/docs">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600&display=swap">
+<link rel="stylesheet" href="/assets/site.css">
+<script src="/assets/site.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/"><img class="brand-mark" src="/assets/mark.svg" alt="" width="26" height="26">ObjectModel</a>
+    <nav class="nav" aria-label="Main">
+      <a href="/playground">Playground</a>
+      <a href="/gallery" class="hide-sm">Gallery</a>
+      <a href="/docs" aria-current="page">Docs</a>
+      <a href="/#benchmark" class="hide-sm">Benchmark</a>
+      <button class="icon-btn" type="button" data-theme-toggle aria-label="Toggle dark mode">◐</button>
+      <a class="btn btn-primary btn-sm" href="https://github.com/ayanbhardwaj1/objectmodel">GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="main" class="wrap docs">
+  <nav aria-label="On this page">
+    <a href="#install">Install</a><a href="#quickstart">Quickstart</a><a href="#inputs">Inputs</a><a href="#outputs">Outputs</a>
+    <a href="#validation">Validation</a><a href="#python">Python API</a><a href="#rest">REST API</a><a href="#mcp">MCP server</a>
+    <a href="#llm">LLM naming</a><a href="#limits">Limitations</a>
+  </nav>
+  <article class="prose">
+    <span class="eyebrow">Documentation</span>
+    <h1 style="font-size:clamp(2rem,4vw,2.8rem)">ObjectModel docs</h1>
+    <p>ObjectModel turns observations of an articulated object (point tracks or video) into a URDF and MJCF model whose joints are measured from motion, then proves the model in MuJoCo before you use it.</p>
+
+    <h2 id="install">Install</h2>
+<pre>pip install "objectmodel[sim,video] @ git+https://github.com/ayanbhardwaj1/objectmodel"
+# development
+git clone https://github.com/ayanbhardwaj1/objectmodel && cd objectmodel
+pip install -e ".[dev]" && python -m pytest -q</pre>
+    <p>Python 3.10+. <code>sim</code> adds MuJoCo (validation), <code>video</code> adds OpenCV (video input). The core needs only NumPy.</p>
+
+    <h2 id="quickstart">Quickstart</h2>
+<pre>objectmodel demo dresser --out out/dresser
+open out/dresser/viewer.html</pre>
+    <p>The command prints the verdict and every joint with its confidence and axis uncertainty, then writes five files. Try <code>objectmodel gallery</code> for one page holding every demo object, and <code>objectmodel bench</code> to reproduce the benchmark.</p>
+
+    <h2 id="inputs">Inputs</h2>
+    <h3>Point tracks (any tracker)</h3>
+    <p>A <code>.npz</code> with <code>points</code> of shape (T, N, 3) in metres and <code>visible</code> of shape (T, N). Frame 0 is the rest pose; tracks not visible in frame 0 are dropped with a note. Optional <code>labels</code> (N) with per-track part ids, for example from SAM masks, skip segmentation.</p>
+<pre>objectmodel fit tracks.npz --hint "kitchen cabinet" --out out/cab
+objectmodel fit tracks.npz --labels parts.npy</pre>
+    <h3>Video</h3>
+    <p>Built-in Lucas-Kanade tracking with forward-backward checks and automatic background removal. Give a depth stack (T, H, W) in metres for full 3D, or film side-on and set metric scale with a printed ArUco 4×4 marker or one known dimension.</p>
+<pre>objectmodel video clip.mp4 --depth depth.npy --hint laptop
+objectmodel video side.mp4 --marker-mm 50
+objectmodel video side.mp4 --scale-mm 304</pre>
+    <p>Hand-held captures work: joints are fitted on motion relative to the parent part and the replay runs in the base's frame.</p>
+
+    <h2 id="outputs">Outputs</h2>
+    <ul>
+      <li><code>&lt;name&gt;.urdf</code>: links with box visual/collision geometry, inertials, joints with limits, effort, velocity and dynamics.</li>
+      <li><code>&lt;name&gt;.xml</code>: MJCF in radians with nested bodies, hinge/slide joints, ranges and explicit inertials.</li>
+      <li><code>model.json</code>: the scene for your own tools, including per-frame joint values.</li>
+      <li><code>report.md</code>: verdict, joint table with uncertainty, masses and every warning.</li>
+      <li><code>viewer.html</code>: a self-contained 3D viewer with joint sliders and capture replay.</li>
+    </ul>
+    <p>Link frames are axis-aligned at the rest pose; the root's frame is the capture's world origin, so URDF and MJCF place every link identically.</p>
+
+    <h2 id="validation">What "validated" means</h2>
+    <p>A model is <strong>SIM-VALIDATED</strong> only when all of these hold:</p>
+    <ul>
+      <li>The MJCF compiles in MuJoCo, and masses, inertias (triangle inequality) and limits are valid.</li>
+      <li>The URDF also compiles, and its link poses match the MJCF within 1 mm at rest, mid-range and both limits.</li>
+      <li>Driving the model with the measured joint values reproduces the tracked points. The error left after removing the expected tracking noise (√6·σ) is under 10 mm.</li>
+      <li>A 2-second passive simulation under gravity stays finite and bounded.</li>
+    </ul>
+    <p>A sweep of each joint through its range also reports parts that would collide, as warnings. Confidence below 0.9 or axis uncertainty above 5° are flagged too.</p>
+
+    <h2 id="python">Python API</h2>
+<pre>from objectmodel.synthetic import TrackSet
+from objectmodel.pipeline import run, write_outputs
+
+ts = TrackSet.load("tracks.npz")
+result = run(ts, hint="kitchen cabinet")
+print(result.validation.passed, result.validation.replay_excess_mm)
+for j in result.model.joints:
+    print(j.name, j.type, j.axis, j.confidence, j.axis_std_deg)
+write_outputs(result, "out/cabinet")</pre>
+
+    <h2 id="rest">REST API</h2>
+    <p><code>POST /api/reconstruct</code> on this site runs the same pipeline.</p>
+<pre># demo object (JSON body)
+curl -X POST https://objectmodel.vercel.app/api/reconstruct -H 'content-type: application/json' \
+  -d '{"object":"dresser","noise_mm":2,"camera_motion":0.2,"seed":0}'
+
+# your tracks (raw .npz body, up to 4 MB, 300 frames, 4000 tracks)
+curl -X POST 'https://objectmodel.vercel.app/api/reconstruct?hint=laptop' --data-binary @tracks.npz</pre>
+    <p>The response holds <code>summary</code> (verdict, joints, warnings), <code>files</code> (URDF, MJCF, JSON, report as text) and <code>viewer_html</code>. Invalid input returns 400 with a message, and a capture with only one rigid part returns 422. <code>GET /api/reconstruct</code> is a health check.</p>
+
+    <h2 id="mcp">MCP server</h2>
+<pre>{"mcpServers": {"objectmodel": {
+  "command": "python", "args": ["-m", "objectmodel.mcp_server"],
+  "env": {"OBJECTMODEL_ROOT": "/path/to/workdir"}}}}</pre>
+    <p>Tools: <code>list_demo_objects</code>, <code>reconstruct_demo</code>, <code>reconstruct_tracks</code>, <code>reconstruct_video</code>. Every path is resolved inside <code>OBJECTMODEL_ROOT</code>; anything outside is refused.</p>
+
+    <h2 id="llm">LLM naming (optional)</h2>
+<pre>export OBJECTMODEL_LLM_BASE_URL=https://api.llama.com/compat/v1
+export OBJECTMODEL_LLM_API_KEY=...
+export OBJECTMODEL_LLM_MODEL=...</pre>
+    <p>Any OpenAI-compatible endpoint names parts and joints and picks materials. It never sets geometry. Its reply is validated against the measured structure: unknown ids and materials are dropped, numbers are clamped, and redirects are refused so the key can't leak. Any failure falls back to geometric naming rules and is noted in the report. Use <code>--no-llm</code> to stay offline.</p>
+
+    <h2 id="limits">Limitations</h2>
+    <ul>
+      <li>Collision geometry is one box per part; meshes are on the roadmap.</li>
+      <li>Damping and friction can't be measured from motion alone, so they are defaults.</li>
+      <li>The built-in tracker drifts on large out-of-plane rotations. For those, feed tracks from a long-range tracker such as CoTracker through <code>objectmodel fit</code>.</li>
+      <li>A part whose total motion is close to the tracking noise can't be separated from its parent.</li>
+    </ul>
+  </article>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <span>ObjectModel · MIT licensed · measured, not guessed.</span>
+    <nav aria-label="Footer"><a href="/playground">Playground</a><a href="/gallery">Gallery</a><a href="/docs">Docs</a><a href="/api/reconstruct">API status</a><a href="https://github.com/ayanbhardwaj1/objectmodel">Source</a></nav>
+  </div>
+</footer>
+</body>
+</html>

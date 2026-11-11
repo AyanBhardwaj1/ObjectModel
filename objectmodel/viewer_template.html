@@ -35,6 +35,8 @@ label.toggle { display:flex; gap:6px; align-items:center; color:var(--muted); ma
 ul { padding-left:18px; margin:6px 0; color:var(--muted); }
 .meter { height:4px; background:var(--line); border-radius:2px; overflow:hidden; margin-top:4px; }
 .meter > i { display:block; height:100%; }
+body.embed { grid-template-columns:1fr; }
+body.embed aside { display:none; }
 @media (max-width: 760px) { body { grid-template-columns:1fr; grid-template-rows:55vh auto; height:auto; } aside { border-left:0; border-top:1px solid var(--line); } }
 </style>
 </head>
@@ -73,6 +75,9 @@ const confColor = c => c > 0.95 ? 0x1f8a4c : c > 0.7 ? 0xd08a00 : 0xc43c3c;
 const $ = id => document.getElementById(id);
 const view = $('view');
 const HAS3D = typeof THREE !== 'undefined' && typeof THREE.OrbitControls !== 'undefined';
+// ?embed hides the panel and auto-plays the capture (used for hero embeds)
+const EMBED = new URLSearchParams(location.search).has('embed');
+if (EMBED) document.body.classList.add('embed');
 
 // ---- 3D stage (created once, reused across objects)
 let renderer, scene, camera, controls, stage;
@@ -198,6 +203,7 @@ function mount(scn) {
     camera.position.set(c.x + size, c.y - size * 1.3, c.z + size * 0.8); controls.target.copy(c);
   }
   showFrame(0);
+  if (EMBED) playing = true;
 }
 
 $('play').onclick = () => { playing = !playing; };

@@ -1,0 +1,159 @@
+<!--HEAD ObjectModel · Real objects in, simulation-ready twins out|Turn a capture of a laptop, cabinet or lamp into a URDF/MJCF digital twin whose joints are measured from motion and proven in MuJoCo.-->
+<!--HEADER home-->
+<main>
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <span class="eyebrow">Real-to-sim for articulated objects</span>
+        <h1>Real objects in. <em>Simulation-ready</em> twins out.</h1>
+        <p class="lede">Film a cabinet, a laptop or a desk lamp while you move it. ObjectModel measures every hinge and slider from the motion, builds the kinematic tree, and only hands you a URDF/MJCF after MuJoCo has replayed it against your capture.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="/playground">Try it in the browser →</a>
+          <a class="btn btn-ghost" href="/docs">Read the docs</a>
+        </div>
+        <div class="install" aria-label="Install command">
+          <span class="prompt">$</span><span>pip install "objectmodel[sim] @ git+https://github.com/ayanbhardwaj1/objectmodel"</span>
+          <button class="copy" data-copy="pip install &quot;objectmodel[sim] @ git+https://github.com/ayanbhardwaj1/objectmodel&quot;">Copy</button>
+        </div>
+      </div>
+      <div class="stage">
+        <iframe src="/gallery?embed=1#kitchen_cabinet" title="Live reconstruction of a kitchen cabinet replaying its capture" loading="eager"></iframe>
+        <div class="stage-tag"><span class="chip chip-ok">SIM-VALIDATED</span><span class="chip">door 82.4° · drawer 167 mm</span></div>
+      </div>
+    </div>
+    <div class="wrap" style="margin-top:clamp(36px,6vw,64px)">
+      <div class="stats" role="list">
+        <div class="stat" role="listitem"><b>0.18°</b><span>mean hinge-axis error at 1 mm tracking noise</span></div>
+        <div class="stat" role="listitem"><b>0.2 mm</b><span>mean pivot error on the same benchmark</span></div>
+        <div class="stat" role="listitem"><b>100%</b><span>of 1 mm captures pass MuJoCo validation</span></div>
+        <div class="stat" role="listitem"><b>~1.5 s</b><span>per object on a laptop CPU, no GPU</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">How it works</span>
+        <h2>From point tracks to a proven model in five steps</h2>
+        <p class="lede">Every number in the output comes from geometry. A language model, if you add one, only names the parts.</p>
+      </div>
+      <ol class="pipeline">
+        <li><h3>Track</h3><p>Points are followed through the video (or come from your own tracker) and lifted to metres with depth or an ArUco marker.</p></li>
+        <li><h3>Segment</h3><p>Sequential RANSAC splits the tracks into rigid parts, with a tolerance that adapts to the measured noise.</p></li>
+        <li><h3>Fit joints</h3><p>Fixed, sliding and hinged models compete by BIC. The axis comes from the null space of <code>R − I</code>.</p></li>
+        <li><h3>Build the tree</h3><p>Parts attach where a single joint explains their motion, so lamps chain and cabinets branch. Mass and inertia follow.</p></li>
+        <li><h3>Prove it</h3><p>MuJoCo compiles the URDF and MJCF, replays your capture, sweeps every joint for collisions and checks stability.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="why">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Measured, not guessed</span>
+        <h2>What changes when the simulator gets a vote</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Question</th><th scope="col">Typical image-to-URDF tool</th><th scope="col">ObjectModel</th></tr></thead>
+          <tbody>
+            <tr><td>Where do joint axes come from?</td><td class="them">A language model estimates them</td><td class="us">Closed-form screw-axis fit to the observed motion</td></tr>
+            <tr><td>How many joints?</td><td class="them">Usually one, two parts</td><td class="us">Any tree: serial chains, branches, five-part dressers</td></tr>
+            <tr><td>How sure is it?</td><td class="them">No signal</td><td class="us">Type confidence plus axis ±° and pivot ±mm per joint</td></tr>
+            <tr><td>Does it actually simulate?</td><td class="them">Checked by eye</td><td class="us">URDF and MJCF compiled, replayed, swept and stress-tested in MuJoCo</td></tr>
+            <tr><td>Hand-held camera?</td><td class="them">Assumes a static rig</td><td class="us">Joints are fitted on relative motion, so camera sway cancels out</td></tr>
+            <tr><td>Physics</td><td class="them">Missing or identity inertia</td><td class="us">Minimum-volume boxes, material densities, valid inertia, limits in radians</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="benchmark">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Benchmark</span>
+        <h2>Seven objects, four noise levels, ground truth for every joint</h2>
+        <p class="lede">Laptop, drawer cabinet, two-link desk lamp, kitchen cabinet, faucet, dresser (five parts) and fridge. Three seeds each, 5% of tracks dropped per frame. Reproduce it with <code class="mono">objectmodel bench</code>.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Tracking noise</th><th scope="col" class="n">Correct tree</th><th scope="col" class="n">Joint type</th><th scope="col" class="n">Axis error</th><th scope="col" class="n">Pivot error</th><th scope="col" class="n">Error left after noise</th><th scope="col" class="n">Passes MuJoCo</th></tr></thead>
+          <tbody>
+            <tr><td>1 mm</td><td class="n">100%</td><td class="n">100%</td><td class="n">0.18°</td><td class="n">0.2 mm</td><td class="n">0.03 mm</td><td class="n pass">100%</td></tr>
+            <tr><td>3 mm</td><td class="n">95%</td><td class="n">98%</td><td class="n">0.69°</td><td class="n">1.0 mm</td><td class="n">0.85 mm</td><td class="n pass">100%</td></tr>
+            <tr><td>6 mm</td><td class="n">86%</td><td class="n">93%</td><td class="n">1.35°</td><td class="n">1.6 mm</td><td class="n">2.30 mm</td><td class="n pass">100%</td></tr>
+            <tr><td>10 mm</td><td class="n">86%</td><td class="n">90%</td><td class="n">1.58°</td><td class="n">3.8 mm</td><td class="n">5.19 mm</td><td class="n">81%</td></tr>
+            <tr><td>1 mm, hand-held camera</td><td class="n">100%</td><td class="n">100%</td><td class="n">0.30°</td><td class="n">0.2 mm</td><td class="n">0.00 mm</td><td class="n pass">100%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted" style="margin-top:14px;font-size:.9rem">Most misses at 3 mm and above are the faucet's small lever, which only moves about 13 mm in total.</p>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Built for robotics pipelines</span>
+        <h2>Everything you need between a capture and a training run</h2>
+      </div>
+      <div class="features">
+        <div class="feature"><div class="ico" aria-hidden="true">⟳</div><h3>Simulator-in-the-loop</h3><p>Replay error is split into what tracking noise explains and what the model gets wrong, so "passed" means something.</p></div>
+        <div class="feature"><div class="ico" aria-hidden="true">±</div><h3>Uncertainty per joint</h3><p>A frame bootstrap tells you when a hinge was barely moved and the axis can't be trusted yet.</p></div>
+        <div class="feature"><div class="ico" aria-hidden="true">▣</div><h3>Five outputs</h3><p>URDF, MJCF, a JSON scene, a Markdown report and a self-contained 3D viewer with joint sliders.</p></div>
+        <div class="feature"><div class="ico" aria-hidden="true">◎</div><h3>Metric scale</h3><p>Depth maps, a printed ArUco marker, or one known dimension. No guessing how big the cabinet is.</p></div>
+        <div class="feature"><div class="ico" aria-hidden="true">⌘</div><h3>Agent-ready</h3><p>An MCP server lets Claude, Llama agents and others create assets as a tool call, confined to a folder you choose.</p></div>
+        <div class="feature"><div class="ico" aria-hidden="true">Aa</div><h3>Optional LLM naming</h3><p>Any OpenAI-compatible model names parts and picks materials. Its output is validated; offline rules cover the rest.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="code">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Use it your way</span>
+        <h2>CLI, Python, REST or MCP</h2>
+      </div>
+      <div class="code-grid">
+        <div class="code-card">
+          <header><span>Terminal</span><button class="copy" data-copy="objectmodel video clip.mp4 --depth depth.npy --hint &quot;kitchen cabinet&quot;">Copy</button></header>
+<pre><span class="c"># your own capture (RGB-D)</span>
+<span class="k">objectmodel</span> video clip.mp4 --depth depth.npy --hint <span class="s">"kitchen cabinet"</span>
+
+<span class="c"># tracks from any 3D tracker</span>
+<span class="k">objectmodel</span> fit tracks.npz --out twins/cabinet
+
+<span class="c"># kitchen_cabinet: SIM-VALIDATED (unexplained 0.0 mm)</span>
+<span class="c">#   door_hinge   revolute  body -> door   conf=1.000 ±0.01°</span>
+<span class="c">#   drawer_slide prismatic body -> drawer conf=1.000 ±0.07°</span></pre>
+        </div>
+        <div class="code-card">
+          <header><span>REST API</span><button class="copy" data-copy="curl -X POST {{SITE}}/api/reconstruct -H 'content-type: application/json' -d '{&quot;object&quot;:&quot;dresser&quot;}'">Copy</button></header>
+<pre><span class="c"># demo object</span>
+<span class="k">curl</span> -X POST /api/reconstruct \
+  -H <span class="s">'content-type: application/json'</span> \
+  -d <span class="s">'{"object":"dresser","noise_mm":2}'</span>
+
+<span class="c"># your tracks: points (T,N,3) metres, visible (T,N)</span>
+<span class="k">curl</span> -X POST <span class="s">'/api/reconstruct?hint=laptop'</span> \
+  --data-binary @tracks.npz</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="cta">
+        <div class="stack" style="gap:8px">
+          <h2>See it work on a five-part dresser</h2>
+          <p class="muted">Pick an object, add noise or camera sway, and download the URDF and MJCF it produces.</p>
+        </div>
+        <a class="btn btn-primary" href="/playground">Open the playground →</a>
+      </div>
+    </div>
+  </section>
+</main>
+<!--FOOTER-->
