@@ -27,6 +27,7 @@ class SegmentationConfig:
 
 
 RELAX_FACTORS = (1.0, 1.5, 2.0, 3.0)
+MIN_SEED_VISIBILITY = 0.8
 
 
 @dataclass
@@ -79,9 +80,15 @@ def _point_residuals(ts: TrackSet, R: np.ndarray, t: np.ndarray) -> np.ndarray:
 
 
 def _robust_point_score(res: np.ndarray, vis: np.ndarray) -> np.ndarray:
-    """Per-point 90th-percentile residual over visible frames (robust to blips)."""
-    masked = np.where(vis, res, np.nan)
-    return np.nanpercentile(masked, 90, axis=0)
+    """Per-point ~90th-percentile residual over visible frames (robust to blips).
+
+    Invisible frames count as zero residual; np.partition keeps this O(T) per point
+    (nanpercentile is ~10x slower and this runs for every RANSAC hypothesis).
+    """
+    T = res.shape[0]
+    filled = np.where(vis, res, 0.0)
+    k = min(T - 1, int(np.ceil(0.9 * T)) - 1)
+    return np.partition(filled, k, axis=0)[k]
 
 
 def fit_part_poses(ts: TrackSet, idx: np.ndarray) -> list[Pose]:
@@ -99,25 +106,29 @@ def fit_part_poses(ts: TrackSet, idx: np.ndarray) -> list[Pose]:
 def segment(ts: TrackSet, cfg: SegmentationConfig = SegmentationConfig()) -> Segmentation:
     rng = np.random.default_rng(cfg.seed)
     N = ts.n_points
-    full = ts.visible.all(axis=0)
+    # Hypothesis seeds must be visible in most frames; per-frame gaps are handled
+    # by visibility-weighted Kabsch.
+    mostly = ts.visible.mean(axis=0) >= MIN_SEED_VISIBILITY
     ref = ts.points[0]
     unassigned = np.ones(N, bool)
     parts: list[np.ndarray] = []
     tols: list[float] = []
 
     while unassigned.sum() >= cfg.min_part_points and len(parts) < cfg.max_parts:
-        cand = np.flatnonzero(unassigned & full)
+        cand = np.flatnonzero(unassigned & mostly)
         if len(cand) < cfg.sample_size:
             break
         seeds = rng.choice(cand, size=min(cfg.hypotheses, len(cand)), replace=len(cand) < cfg.hypotheses)
         d = np.linalg.norm(ref[cand][None, :, :] - ref[seeds][:, None, :], axis=2)
         k = cfg.sample_size
         nn = cand[np.argsort(d, axis=1)[:, :k]]  # (H,k) local neighbourhoods
-        P = np.broadcast_to(ref[nn][:, None], (len(seeds), ts.n_frames, k, 3)).reshape(-1, k, 3)
+        H_, T_ = len(seeds), ts.n_frames
+        P = np.broadcast_to(ref[nn][:, None], (H_, T_, k, 3)).reshape(-1, k, 3)
         Q = np.transpose(ts.points[:, nn], (1, 0, 2, 3)).reshape(-1, k, 3)
-        R, t = batch_kabsch(P, Q)
-        R = R.reshape(len(seeds), ts.n_frames, 3, 3)
-        t = t.reshape(len(seeds), ts.n_frames, 3)
+        W = np.transpose(ts.visible[:, nn], (1, 0, 2)).reshape(-1, k).astype(float)
+        R, t = batch_kabsch(P, Q, W)
+        R = R.reshape(H_, T_, 3, 3)
+        t = t.reshape(H_, T_, 3)
         best_count, best_inl, tol = -1, None, cfg.inlier_tol
         scores = [_robust_point_score(_point_residuals(ts, R[h], t[h]), ts.visible) for h in range(len(seeds))]
         # Progressive relaxation: strict tolerance first; looser only for what remains

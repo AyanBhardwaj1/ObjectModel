@@ -57,11 +57,13 @@ def kabsch(P: np.ndarray, Q: np.ndarray, w: np.ndarray | None = None) -> Pose:
     return Pose(R, cq - R @ cp)
 
 
-def batch_kabsch(P: np.ndarray, Q: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Vectorised Kabsch over a batch: P,Q (B,N,3) -> R (B,3,3), t (B,3)."""
-    cp = P.mean(axis=1, keepdims=True)
-    cq = Q.mean(axis=1, keepdims=True)
-    H = np.einsum("bni,bnj->bij", P - cp, Q - cq)
+def batch_kabsch(P: np.ndarray, Q: np.ndarray, w: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
+    """Vectorised weighted Kabsch over a batch: P,Q (B,N,3), w (B,N) -> R (B,3,3), t (B,3)."""
+    w = np.ones(P.shape[:2]) if w is None else np.asarray(w, float)
+    w = w / np.maximum(w.sum(axis=1, keepdims=True), EPS)
+    cp = np.einsum("bn,bni->bi", w, P)[:, None, :]
+    cq = np.einsum("bn,bni->bi", w, Q)[:, None, :]
+    H = np.einsum("bni,bnj->bij", (P - cp) * w[..., None], Q - cq)
     U, _, Vt = np.linalg.svd(H)
     V = np.swapaxes(Vt, 1, 2)
     d = np.sign(np.linalg.det(V @ np.swapaxes(U, 1, 2)))

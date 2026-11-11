@@ -40,7 +40,12 @@ def evaluate(name: str, noise: float, seed: int) -> CaseResult:
     obj = s.CATALOGUE[name]()
     ts = s.generate_tracks(obj, noise=noise, seed=seed)
     t0 = time.time()
-    res = run(ts, hint=name.replace("_", " "), use_llm=False)
+    nan = float("nan")
+    try:
+        res = run(ts, hint=name.replace("_", " "), use_llm=False)
+    except ValueError:
+        # a reconstruction that refuses to produce a model scores as a full failure
+        return CaseResult(name, noise * 1000, seed, False, 0.0, nan, nan, nan, nan, False, time.time() - t0)
     dt = time.time() - t0
     seg = res.segmentation
     owner = {i: _owner(ts.labels, seg.labels == i) for i in range(seg.n_parts)}
@@ -61,7 +66,6 @@ def evaluate(name: str, noise: float, seed: int) -> CaseResult:
         if j.type == "revolute":
             pivots.append(point_line_distance(est.origin, j.origin, j.axis) * 1000)
         states.append(float(np.mean(np.abs(est.states - ts.joint_states[j.child]))))
-    nan = float("nan")
     return CaseResult(
         name, noise * 1000, seed, topo, float(np.mean(types)),
         float(np.mean(axes)) if axes else nan, float(np.mean(pivots)) if pivots else nan,
