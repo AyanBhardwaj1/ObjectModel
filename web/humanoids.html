@@ -102,6 +102,7 @@
 <pre><code>objectmodel task kitchen_cabinet                 <span class="c"># generic humanoid, door and drawer</span>
 objectmodel task kitchen_cabinet --perturb 10    <span class="c"># the same plan from a twin 10° off</span>
 objectmodel task-bench                           <span class="c"># the accuracy table above</span>
+objectmodel plan kitchen_cabinet --out plan.json <span class="c"># the plan as JSON, for another stack</span>
 bash scripts/fetch_menagerie.sh                  <span class="c"># public Apollo model, Apache-2.0</span>
 MUJOCO_GL=egl objectmodel task fridge --robot apollo --video fridge.mp4</code></pre>
       </div>

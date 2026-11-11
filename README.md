@@ -171,6 +171,7 @@ the joint, measured as grasp force above an oracle plan that uses the true joint
 objectmodel task kitchen_cabinet                  # generic humanoid opens the door and the drawer
 objectmodel task kitchen_cabinet --perturb 10     # same plan from a twin with a 10° axis error
 objectmodel task-bench --out docs/task_bench.md   # sweep twin error across 10 tasks
+objectmodel plan kitchen_cabinet --out plan.json  # export the task plan (handle, stance, path) as JSON
 bash scripts/fetch_menagerie.sh                   # public Apollo model (Google DeepMind, Apache-2.0)
 MUJOCO_GL=egl objectmodel task fridge --robot apollo --video fridge.mp4
 ```
@@ -241,7 +242,7 @@ honours dark mode and reduced motion.
 ## Development
 
 ```bash
-python -m pytest -q        # 135 tests (+1 Apollo test when the model is installed, +5 C++ parity tests when built): math, estimation accuracy, export, validation, agent, video, MCP
+python -m pytest -q        # 138 tests (the Apollo test needs the model, the 6 C++ parity tests need the built core): math, estimation accuracy, export, validation, agent, video, MCP
 ```
 
 The research behind the design is in [`reports/`](reports/) with notes in [`research_notes/`](research_notes/).

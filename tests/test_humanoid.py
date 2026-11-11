@@ -119,3 +119,33 @@ def test_infeasible_tasks_are_not_counted_as_success():
     rows = sweep(objects=("kitchen_cabinet",), errors=(0.0,))
     assert all(not r.success for r in rows if not r.feasible)
     assert "feasible tasks" in summary_table(rows)
+
+
+def test_exported_plan_follows_the_twin_joint():
+    import json
+
+    from objectmodel.tasks import plan_tasks
+    out = json.loads(json.dumps(plan_tasks("kitchen_cabinet")))  # must be plain JSON
+    tasks = {t["part"]: t for t in out["tasks"]}
+    assert set(tasks) == {"door", "drawer"}
+    for t in tasks.values():
+        assert t["schema"] == "objectmodel.task_plan/1"
+        assert t["path"][0]["handle"] == pytest.approx(t["handle"], abs=1e-4)
+        assert t["path"][0]["q"] == pytest.approx(t["joint"]["q_closed"]) and t["path"][-1]["q"] == pytest.approx(t["joint"]["q_open"])
+    door = tasks["door"]
+    axis, origin = np.array(door["joint"]["axis"]), np.array(door["joint"]["origin"])
+    pts = np.array([w["handle"] for w in door["path"]])
+    radial = np.linalg.norm(np.cross(pts - origin, axis), axis=1)
+    assert np.ptp(radial) < 1e-3  # the handle stays on a circle about the hinge
+    drawer = tasks["drawer"]
+    d = np.array(drawer["path"][-1]["handle"]) - np.array(drawer["path"][0]["handle"])
+    assert np.dot(d / np.linalg.norm(d), drawer["approach_normal"]) > 0.99  # pulled straight out of the face
+
+
+def test_cli_plan_writes_json(tmp_path):
+    import json
+
+    from objectmodel.cli import main
+    out = tmp_path / "plan.json"
+    assert main(["plan", "drawer_cabinet", "--out", str(out)]) == 0
+    assert json.loads(out.read_text())["tasks"]

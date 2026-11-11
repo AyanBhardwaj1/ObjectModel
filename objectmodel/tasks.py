@@ -12,7 +12,7 @@ import numpy as np
 from . import synthetic as s
 from .export import to_mjcf
 from .geometry import axis_angle_to_matrix
-from .humanoid import TaskResult, closed_and_open, execute
+from .humanoid import TaskResult, closed_and_open, execute, task_plan
 from .model import ArticulatedModel, Joint, Link
 from .physics import PartGeometry, physical_props
 from .pipeline import run
@@ -126,3 +126,23 @@ def run_task(object_name: str, seed: int = 0, noise_mm: float = 1.0, perturb_deg
         ora = execute(world_xml, gj.child, gj.name, wq, truth, gj, robot=bot, lift=h) if oracle else None
         cases.append(TaskCase(object_name, gt_part, res, ora, angle_between_axes(plan_joint.axis, gj.axis)))
     return cases
+
+
+def plan_tasks(object_name: str, seed: int = 0, noise_mm: float = 1.0, robot: str = "generic",
+               waypoints: int = 21) -> dict:
+    """Reconstruct an object's twin and export the plan for every first-level door, drawer and lid.
+
+    Uses the twin only, never the ground truth: this is what you would hand to another stack.
+    """
+    from .robots import get_robot
+
+    bot = get_robot(robot)
+    obj = s.CATALOGUE[object_name]()
+    ts = s.generate_tracks(obj, seed=seed, noise=noise_mm / 1000)
+    twin = run(ts, hint=object_name.replace("_", " "), use_llm=False).model
+    plans = []
+    for tj in twin.joints:
+        if tj.parent != twin.root.name or tj.type not in ("revolute", "prismatic"):
+            continue
+        plans.append(task_plan(twin, tj, bot, lift=work_height_lift(twin, tj, bot), waypoints=waypoints))
+    return {"object": object_name, "robot": bot.name, "frame": "object root, metres, z up", "tasks": plans}

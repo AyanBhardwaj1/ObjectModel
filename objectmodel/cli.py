@@ -128,6 +128,30 @@ def cmd_task(args) -> int:
     return 0 if all(c.success for c in cases) else 1
 
 
+def cmd_plan(args) -> int:
+    import json
+
+    from .tasks import plan_tasks
+
+    out = plan_tasks(args.object, seed=args.seed, noise_mm=args.noise, robot=args.robot, waypoints=args.waypoints)
+    if not out["tasks"]:
+        print("no openable first-level joints found", file=sys.stderr)
+        return 1
+    text = json.dumps(out, indent=1)
+    if args.out:
+        os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
+        with open(args.out, "w") as f:
+            f.write(text + "\n")
+        for t in out["tasks"]:
+            st = t["stance"]
+            print(f"{t['part']:<14} {t['action']:<5} {st['arm']:<5} arm, base at ({', '.join(f'{v:.2f}' for v in st['base_xyz'])}), "
+                  f"{len(t['path'])} waypoints")
+        print(f"wrote {args.out}")
+    else:
+        print(text)
+    return 0
+
+
 def cmd_task_bench(args) -> int:
     from .task_bench import by_kind_table, summary_table, sweep, to_json
 
@@ -205,6 +229,15 @@ def build_parser() -> argparse.ArgumentParser:
     t.add_argument("--video", help="write an MP4 of the run (needs MUJOCO_GL=egl or osmesa)")
     t.add_argument("--demo", help="write the run as a demonstration .npz (joint refs, hand path, object state, grasp force)")
     t.set_defaults(fn=cmd_task)
+
+    pl = sub.add_parser("plan", help="export the twin-based task plan (handle, approach, stance, path) as JSON")
+    pl.add_argument("object", choices=list(s.CATALOGUE))
+    pl.add_argument("--robot", default="generic", choices=["generic", "apollo"])
+    pl.add_argument("--waypoints", type=int, default=21)
+    pl.add_argument("--noise", type=float, default=1.0, help="tracking noise in mm")
+    pl.add_argument("--seed", type=int, default=0)
+    pl.add_argument("--out", help="write JSON here instead of printing it")
+    pl.set_defaults(fn=cmd_plan)
 
     tb = sub.add_parser("task-bench", help="sweep twin axis error and measure the extra grasp force it causes")
     tb.add_argument("--errors", nargs="+", default=["0", "2", "5", "10", "15"])

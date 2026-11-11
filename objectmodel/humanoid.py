@@ -229,6 +229,50 @@ def handle_path(model: ArticulatedModel, j: Joint, aff: Affordance, q: float, po
     return _joint_motion(j, q - aff.q_closed, p[None])[0]
 
 
+def _plan_body(model: ArticulatedModel, j: Joint, aff: Affordance, robot, up: np.ndarray, n: int = 9):
+    """Handle path (n waypoints, closed to open), working arm, shoulder, base position and base yaw."""
+    path = np.array([handle_path(model, j, aff, aff.q_closed + f * (aff.q_open - aff.q_closed)) for f in np.linspace(0, 1, n)]) + up
+    side, shoulder = plan_stance(aff, path, robot)
+    left = np.cross([0, 0, 1], -aff.normal)
+    base = shoulder + left * robot.shoulder_lateral * (1.0 if side == "r" else -1.0)
+    base[2] = max(shoulder[2] - robot.shoulder_height, 0.12)
+    yaw = float(np.arctan2(-aff.normal[1], -aff.normal[0]))
+    return path, side, shoulder, base, yaw
+
+
+PLAN_SCHEMA = "objectmodel.task_plan/1"
+
+
+def task_plan(model: ArticulatedModel, j: Joint, robot=None, lift: float = 0.0, waypoints: int = 21) -> dict:
+    """The plan a robot would execute for one part, as plain JSON-ready data.
+
+    Everything comes from the twin alone, in the object's frame raised by `lift` (metres, z-up). The
+    path is the handle position at evenly spaced joint values from closed to open; stance gives the
+    robot base pose and working arm. The same numbers drive `execute`, so this is what the robot does.
+    """
+    from .robots import GenericHumanoid
+
+    robot = robot or GenericHumanoid()
+    aff = affordance(model, j)
+    up = np.array([0.0, 0.0, lift])
+    path, side, shoulder, base, yaw = _plan_body(model, j, aff, robot, up, n=waypoints)
+    qs = np.linspace(aff.q_closed, aff.q_open, waypoints)
+    r = lambda v: [round(float(x), 5) + 0.0 for x in v]  # + 0.0 turns -0.0 into 0.0
+    return {
+        "schema": PLAN_SCHEMA,
+        "robot": robot.name,
+        "part": j.child,
+        "joint": {"name": j.name, "type": j.type, "axis": r(j.axis), "origin": r(np.asarray(j.origin) + up),
+                  "q_closed": round(float(aff.q_closed), 5) + 0.0, "q_open": round(float(aff.q_open), 5) + 0.0},
+        "action": aff.kind,
+        "handle": r(aff.handle + up),
+        "approach_normal": r(aff.normal),
+        "stance": {"arm": "right" if side == "r" else "left", "base_xyz": r(base), "base_yaw": round(yaw, 5),
+                   "shoulder_xyz": r(shoulder), "object_lift": round(float(lift), 5)},
+        "path": [{"q": round(float(q), 5) + 0.0, "handle": r(p)} for q, p in zip(qs, path)],
+    }
+
+
 # --------------------------------------------------------------------------- the scene
 
 @dataclass
@@ -331,13 +375,9 @@ def execute(world_mjcf: str, world_child: str, world_joint: str, world_q: tuple[
     if handle_shift is not None:  # study handle-localisation error: the twin believes the handle is elsewhere
         aff.handle = aff.handle + np.asarray(handle_shift, float)
     handle_w = aff.handle + up  # world-space handle (the object may sit on a stand)
-    path = np.array([handle_path(twin, twin_joint, aff, aff.q_closed + f * (aff.q_open - aff.q_closed)) for f in np.linspace(0, 1, 9)]) + up
-    side, shoulder = plan_stance(aff, path, robot)
+    path, side, shoulder, base, yaw = _plan_body(twin, twin_joint, aff, robot, up)
     left = np.cross([0, 0, 1], -aff.normal)
     sgn = 1.0 if side == "r" else -1.0
-    base = shoulder + left * robot.shoulder_lateral * sgn
-    base[2] = max(shoulder[2] - robot.shoulder_height, 0.12)
-    yaw = float(np.arctan2(-aff.normal[1], -aff.normal[0]))
     world = world_mjcf.replace('contype="1" conaffinity="1"', 'contype="0" conaffinity="0"')
     if lift:
         # put the object on a stand: shift its root body and draw the stand under it
